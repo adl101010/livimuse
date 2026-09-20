@@ -83,13 +83,22 @@ export default class AddQueryToQueue {
       newSongs = await Promise.all(newSongs.map(this.skipNonMusicSegments.bind(this)));
     }
 
+    const needsConnection = player.voiceConnection === null;
+    if (needsConnection) {
+      // A failed join must not leave an unacknowledged request in the queue.
+      await player.connect(targetVoiceChannel);
+    } else {
+      // Let an existing session recover without changing its channel or paused state.
+      await player.ensureVoiceConnectionReady();
+    }
+
     newSongs.forEach((song, index) => {
       player.add({
         ...song,
         addedInChannelId: interaction.channel!.id,
         requestedBy: interaction.member!.user.id,
       }, {
-        immediate: addToFrontOfQueue ?? false,
+        immediate: addToFrontOfQueue,
         immediateOffset: index,
       });
     });
@@ -99,9 +108,7 @@ export default class AddQueryToQueue {
     let statusMsg = '';
     let shouldShowPlayingEmbed = false;
 
-    if (player.voiceConnection === null) {
-      await player.connect(targetVoiceChannel);
-
+    if (needsConnection) {
       // Resume / start playback
       await player.play();
 

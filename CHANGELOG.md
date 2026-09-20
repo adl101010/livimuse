@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Retry stalled initial voice handshakes within a bounded wait, share concurrent joins, and report the failed network phase without exposing voice credentials.
+- Connect before queueing new requests so failed voice joins do not leave unexpected tracks behind.
+
 - Resolve SoundCloud tracks, share links, and bounded playlists with yt-dlp instead of probing HTML pages as audio streams, and refresh media URLs when playback begins.
 
 ## [2.11.7] - 2026-08-20
