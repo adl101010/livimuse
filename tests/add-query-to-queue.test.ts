@@ -353,6 +353,25 @@ describe('AddQueryToQueue immediate batch insertion', () => {
 });
 
 describe('AddQueryToQueue SponsorBlock trimming', () => {
+  it.each([
+    {name: 'a later chapter with a video outro', offset: 120, length: 60,
+      segments: [{startTime: 0, endTime: 10}, {startTime: 170, endTime: 180}], expected: {offset: 120, length: 50}},
+    {name: 'an earlier chapter before the video outro', offset: 0, length: 60,
+      segments: [{startTime: 170, endTime: 180}], expected: {offset: 0, length: 60}},
+    {name: 'a middle chapter outside the video intro and outro', offset: 60, length: 60,
+      segments: [{startTime: 0, endTime: 10}, {startTime: 170, endTime: 180}], expected: {offset: 60, length: 60}},
+    {name: 'segments crossing both chapter boundaries', offset: 60, length: 60,
+      segments: [{startTime: 55, endTime: 65}, {startTime: 115, endTime: 125}], expected: {offset: 65, length: 50}},
+    {name: 'a segment covering the whole chapter', offset: 60, length: 60,
+      segments: [{startTime: 55, endTime: 125}], expected: {offset: 120, length: 0}},
+  ])('respects source timestamps for $name', async ({offset, length, segments, expected}) => {
+    const {service} = makeService({player: {}});
+    setSponsorBlock(service, vi.fn().mockResolvedValue(segments));
+    const song = makeSong('Chapter', {offset, length});
+
+    await expect(skipNonMusicSegments(service, song)).resolves.toMatchObject(expected);
+  });
+
   it('keeps the maximum end when an overlapping segment is contained by the previous one', async () => {
     const player = {};
     const {service} = makeService({player});

@@ -178,7 +178,10 @@ export default class AddQueryToQueue {
           expiresIn: ONE_HOUR_IN_SECONDS,
         },
       ) ?? [];
+      const originalStart = song.offset;
+      const originalEnd = song.offset + song.length;
       const skipSegments = segments
+        .filter(({startTime, endTime}) => endTime > originalStart && startTime < originalEnd)
         .sort((a, b) => a.startTime - b.startTime)
         .reduce((acc: Array<{startTime: number; endTime: number}>, {startTime, endTime}) => {
           const previousSegment = acc[acc.length - 1];
@@ -194,18 +197,16 @@ export default class AddQueryToQueue {
 
       const intro = skipSegments[0];
       const outro = skipSegments.at(-1);
-      const shouldTrimIntro = intro && intro.startTime <= 2;
-      const shouldTrimOutro = outro && outro.endTime >= song.length - 2;
-      if (shouldTrimOutro && (!shouldTrimIntro || outro !== intro)) {
-        song.length -= Math.max(0, outro.endTime - outro.startTime);
-      }
-
-      if (shouldTrimIntro) {
-        song.offset = Math.max(0, Math.floor(intro.endTime));
-        song.length -= song.offset;
-      }
-
-      song.length = Math.max(0, song.length);
+      // SponsorBlock timestamps refer to the full source, including when this
+      // queue entry is only a chapter. Clamp both trims to that entry's interval.
+      const start = intro && intro.startTime <= originalStart + 2
+        ? Math.min(originalEnd, Math.max(originalStart, Math.floor(intro.endTime)))
+        : originalStart;
+      const end = outro && outro.endTime >= originalEnd - 2
+        ? Math.max(start, Math.min(originalEnd, outro.startTime))
+        : originalEnd;
+      song.offset = start;
+      song.length = Math.max(0, end - start);
 
       return song;
     } catch (e) {

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connect before queueing new requests so failed voice joins do not leave unexpected tracks behind.
 - Handle Discord audio resource errors without crashing Muse and continue normal queue advancement.
 - Keep chapter and SponsorBlock cache boundaries separate so short cached excerpts cannot truncate full tracks. Existing audio caches refill as needed.
+- Apply SponsorBlock trimming within each chapter's original timestamps so split tracks play the correct audio.
 - Ignore stale listener-departure events after the voice connection or channel changes.
 - Resolve SoundCloud tracks, share links, and bounded playlists with yt-dlp instead of probing HTML pages as audio streams, and refresh media URLs when playback begins.
 
