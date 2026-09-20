@@ -6,9 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.11.8] - 2026-09-20
+
 - Retry stalled initial voice handshakes within a bounded wait, share concurrent joins, and report the failed network phase without exposing voice credentials.
 - Connect before queueing new requests so failed voice joins do not leave unexpected tracks behind.
-
+- Handle Discord audio resource errors without crashing Muse and continue normal queue advancement.
+- Keep chapter and SponsorBlock cache boundaries separate so short cached excerpts cannot truncate full tracks. Existing audio caches refill as needed.
+- Ignore stale listener-departure events after the voice connection or channel changes.
 - Resolve SoundCloud tracks, share links, and bounded playlists with yt-dlp instead of probing HTML pages as audio streams, and refresh media URLs when playback begins.
 
 ## [2.11.7] - 2026-08-20
@@ -415,6 +419,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release
 
 [unreleased]: https://github.com/museofficial/muse/compare/v2.11.7...HEAD
+[2.11.8]: https://github.com/museofficial/muse/compare/v2.11.7...v2.11.8
 [2.11.7]: https://github.com/museofficial/muse/compare/v2.11.6...v2.11.7
 [2.11.6]: https://github.com/museofficial/muse/compare/v2.11.5...v2.11.6
 [2.11.5]: https://github.com/museofficial/muse/compare/v2.11.4...v2.11.5

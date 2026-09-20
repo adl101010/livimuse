@@ -1581,3 +1581,26 @@ describe('Initial voice handshake retries', () => {
   });
 
 });
+
+describe('bounded media cache identity', () => {
+  it('does not reuse a cached first chapter as the complete recording', async () => {
+    dependencyMocks.execa.mockResolvedValue({stdout: JSON.stringify({url: 'https://media.example/audio.webm', is_live: false})});
+    const entries = new Map<string, {path: string; generation: string}>();
+    const fileCache = {getEntryFor: vi.fn(async (key: string) => entries.get(key) ?? null)};
+    const player = new Player(fileCache as never, GUILD_ID);
+    const createReadStream = vi.fn(async () => new PassThrough());
+    Object.assign(player, {createReadStream});
+    const song: QueuedSong = {title: 'First chapter', artist: 'Artist', url: 'abcdefghijk', length: 30,
+      offset: 0, playlist: null, isLive: false, thumbnailUrl: null, source: MediaSource.Youtube,
+      addedInChannelId: 'text-id', requestedBy: 'user-id'};
+    const getStream = (player as unknown as {getStream(song: QueuedSong, options: {seek: number; to: number}): Promise<Readable>}).getStream.bind(player);
+    (await getStream(song, {seek: 0, to: 30})).destroy();
+    entries.set(fileCache.getEntryFor.mock.calls[0][0], {path: '/cache/first-chapter.webm', generation: 'chapter'});
+    (await getStream({...song, title: 'Complete recording', length: 180}, {seek: 0, to: 180})).destroy();
+    expect(createReadStream).toHaveBeenLastCalledWith(expect.objectContaining({url: 'https://media.example/audio.webm'}));
+    expect(dependencyMocks.execa).toHaveBeenCalledTimes(2);
+    entries.set(fileCache.getEntryFor.mock.calls[1][0], {path: '/cache/complete.webm', generation: 'full'});
+    (await getStream({...song, length: 180}, {seek: 60, to: 180})).destroy();
+    expect(createReadStream).toHaveBeenLastCalledWith(expect.objectContaining({url: '/cache/complete.webm', ffmpegInputOptions: ['-ss', '60', '-to', '180']}));
+  });
+});

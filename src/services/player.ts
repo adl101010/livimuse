@@ -662,8 +662,8 @@ export default class {
       },
     });
     voiceConnection.subscribe(this.audioPlayer);
-    this.playAudioPlayerResource(this.createAudioStream(stream));
     this.attachListeners();
+    this.playAudioPlayerResource(this.createAudioStream(stream));
     this.startTrackingPosition(positionSeconds);
 
     this.status = STATUS.PLAYING;
@@ -744,9 +744,8 @@ export default class {
         },
       });
       voiceConnection.subscribe(this.audioPlayer);
-      this.playAudioPlayerResource(this.createAudioStream(stream));
-
       this.attachListeners();
+      this.playAudioPlayerResource(this.createAudioStream(stream));
 
       this.status = STATUS.PLAYING;
       this.nowPlaying = currentSong;
@@ -826,7 +825,10 @@ export default class {
     const ffmpegInputOptions: string[] = [];
     let shouldCacheVideo = false;
 
-    const cacheHash = this.getHashForCache(song.url);
+    // Cached audio starts at zero but may end at a chapter or SponsorBlock boundary.
+    // Version the key to avoid reusing legacy URL-only entries with unknown bounds.
+    const cacheKey = JSON.stringify(['audio-v2', song.source, song.url, options.to ?? null]);
+    const cacheHash = this.getHashForCache(cacheKey);
     const cachedEntry = await this.fileCache.getEntryFor(cacheHash);
     ffmpegInput = cachedEntry?.path ?? null;
 
@@ -866,7 +868,7 @@ export default class {
     try {
       return await this.createReadStream({
         url: ffmpegInput,
-        cacheKey: song.url,
+        cacheKey,
         ffmpegInputOptions,
         cache: shouldCacheVideo,
       });
@@ -913,6 +915,14 @@ export default class {
     }
 
     const {audioPlayer} = this;
+    if (audioPlayer.listeners('error').length === 0) {
+      audioPlayer.on('error', error => {
+        // The voice library transitions failed resources to Idle after emitting
+        // this event. Let the existing Idle handler advance the queue once.
+        console.error(`Audio player failed for guild ${this.guildId}: ${sanitizeFfmpegError(error)}`);
+      });
+    }
+
     const queueEntryVersion = this.currentQueueEntryVersion;
     if (audioPlayer.listeners(AudioPlayerStatus.Idle).length === 0) {
       audioPlayer.on(AudioPlayerStatus.Idle, (oldState, newState) => {
