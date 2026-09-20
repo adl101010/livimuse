@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep chapter and SponsorBlock cache boundaries separate so short cached excerpts cannot truncate full tracks. Existing audio caches refill as needed.
 - Apply SponsorBlock trimming within each chapter's original timestamps so split tracks play the correct audio.
 - Ignore stale listener-departure events after the voice connection or channel changes.
+- Prevent early YouTube playlist metadata failures from becoming unhandled rejections while later pages load.
+- Refresh expired metadata without racing concurrent requests to delete the same cache row.
+- Validate PR snapshot provenance before granting publishing access and restrict snapshot tags to the corresponding PR preview.
 - Resolve SoundCloud tracks, share links, and bounded playlists with yt-dlp instead of probing HTML pages as audio streams, and refresh media URLs when playback begins.
 
 ## [2.11.7] - 2026-08-20
