@@ -5,6 +5,7 @@ import {inject, injectable} from 'inversify';
 import PlayerManager from '../managers/player.js';
 import {STATUS} from '../services/player.js';
 import Command from './index.js';
+import {messages} from '../custom/messages.js';
 
 @injectable()
 export default class implements Command {
@@ -28,6 +29,6 @@ export default class implements Command {
     }
 
     player.pause();
-    await interaction.reply('the stop-and-go light is now red');
+    await interaction.reply(messages.paused);
   }
 }

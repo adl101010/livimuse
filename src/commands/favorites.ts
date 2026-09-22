@@ -6,6 +6,7 @@ import AddQueryToQueue from '../services/add-query-to-queue.js';
 import {TYPES} from '../types.js';
 import {prisma} from '../utils/db.js';
 import {Pagination} from 'pagination.djs';
+import {messages} from '../custom/messages.js';
 
 @injectable()
 export default class implements Command {
@@ -139,7 +140,7 @@ export default class implements Command {
     });
 
     if (favorites.length === 0) {
-      await interaction.reply('there aren\'t any favorites yet');
+      await interaction.reply(messages.noFavorites);
       return;
     }
 
@@ -183,7 +184,7 @@ export default class implements Command {
       },
     });
 
-    await interaction.reply('👍 favorite created');
+    await interaction.reply(messages.favoriteCreated);
   }
 
   private async remove(interaction: ChatInputCommandInteraction) {
@@ -206,6 +207,6 @@ export default class implements Command {
 
     await prisma.favoriteQuery.delete({where: {id: favorite.id}});
 
-    await interaction.reply('👍 favorite removed');
+    await interaction.reply(messages.favoriteRemoved);
   }
 }

@@ -4,6 +4,7 @@ import {TYPES} from '../types.js';
 import PlayerManager from '../managers/player.js';
 import Command from './index.js';
 import {SlashCommandBuilder} from '@discordjs/builders';
+import {messages} from '../custom/messages.js';
 
 @injectable()
 export default class implements Command {
@@ -48,6 +49,6 @@ export default class implements Command {
 
     player.removeFromQueue(position, range);
 
-    await interaction.reply(':wastebasket: removed');
+    await interaction.reply(messages.removed);
   }
 }

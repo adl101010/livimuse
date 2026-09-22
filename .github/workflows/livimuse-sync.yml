@@ -1,0 +1,82 @@
+# LiviMuse: once a day, merge the newest upstream Muse release into master.
+# Pushing uses the SYNC_TOKEN secret (not the built-in token) for two reasons:
+# upstream releases often change files under .github/workflows, which the
+# built-in token isn't allowed to push, and pushes made with the built-in token
+# don't trigger other workflows, so livimuse-build.yml would never run.
+name: LiviMuse sync upstream
+
+on:
+  schedule:
+    - cron: '23 8 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: livimuse-sync
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for SYNC_TOKEN
+        env:
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+        run: |
+          if [ -z "${SYNC_TOKEN}" ]; then
+            echo "::error::Add a SYNC_TOKEN repository secret (fine-grained token with Contents + Workflows write on this repo)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN }}
+
+      - name: Find newest upstream release
+        id: latest
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/museofficial/muse.git
+          git fetch --quiet --no-tags upstream '+refs/tags/v*:refs/tags/v*'
+
+          tag="$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+
+          if git merge-base --is-ancestor "${tag}" HEAD; then
+            echo "Already up to date with upstream ${tag}." | tee -a "${GITHUB_STEP_SUMMARY}"
+            echo "needed=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "needed=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Merge and push
+        if: steps.latest.outputs.needed == 'true'
+        env:
+          TAG: ${{ steps.latest.outputs.tag }}
+        run: |
+          set -uo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          if git merge --no-edit -m "Merge upstream Muse ${TAG}" "${TAG}"; then
+            git push origin HEAD:master
+            echo "Merged upstream ${TAG}; the build workflow will publish a new image." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          conflicts="$(git diff --name-only --diff-filter=U)"
+          git merge --abort
+          {
+            echo "## Merge conflict with upstream ${TAG}"
+            echo
+            echo "Nothing was pushed; the running bot is unaffected. Conflicting files:"
+            echo
+            echo "${conflicts}" | sed 's/^/- /'
+            echo
+            echo "Resolve locally: git fetch upstream --tags && git merge ${TAG}"
+          } >> "${GITHUB_STEP_SUMMARY}"
+          echo "::error::Merge conflict with upstream ${TAG}: $(echo ${conflicts})"
+          exit 1

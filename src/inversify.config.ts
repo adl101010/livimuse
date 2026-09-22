@@ -41,6 +41,7 @@ import Volume from './commands/volume.js';
 import ThirdParty from './services/third-party.js';
 import FileCacheProvider from './services/file-cache.js';
 import KeyValueCacheProvider from './services/key-value-cache.js';
+import {customCommands} from './custom/commands/index.js';
 
 const container = new Container();
 
@@ -97,6 +98,11 @@ if (config.SPOTIFY_CLIENT_ID !== '' && config.SPOTIFY_CLIENT_SECRET !== '') {
   Unskip,
   Volume,
 ].forEach(command => {
+  container.bind<Command>(TYPES.Command).to(command).inSingletonScope();
+});
+
+// LiviMuse custom commands
+customCommands.forEach(command => {
   container.bind<Command>(TYPES.Command).to(command).inSingletonScope();
 });
 

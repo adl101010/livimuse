@@ -6,6 +6,7 @@ import PlayerManager from '../managers/player.js';
 import Command from './index.js';
 import {prettyTime} from '../utils/time.js';
 import durationStringToSeconds from '../utils/duration-string-to-seconds.js';
+import {messages} from '../custom/messages.js';
 
 @injectable()
 export default class implements Command {
@@ -59,6 +60,6 @@ export default class implements Command {
       interaction.deferReply(),
     ]);
 
-    await interaction.editReply(`👍 seeked to ${prettyTime(player.getPosition())}`);
+    await interaction.editReply(messages.seeked(prettyTime(player.getPosition())));
   }
 }
