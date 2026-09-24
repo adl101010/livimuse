@@ -55,7 +55,6 @@ export const buildControlRows = (player: Player): Array<ActionRowData<Interactio
   ),
 ];
 
-
 // The card: Muse's embed, plus a live "Ends in ..." timestamp while playing
 // (Discord counts it down on each viewer's screen), plus the buttons.
 export const buildCard = (player: Player) => {
@@ -175,7 +174,7 @@ export const trackCard = (sent: unknown): void => {
     previous.message.edit({components: []}).catch(() => undefined);
   }
 
-  const card: LiveCard = {message: sent};
+  const card: LiveCard = {message: sent as Message};
   liveCards.set(sent.guildId, card);
   startTimer(sent.guildId, card);
 };
