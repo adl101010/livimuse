@@ -2,10 +2,20 @@
 // time. Upstream code spreads withControls() into each card it sends and passes
 // the sent message to trackCard(). Only the newest card per server keeps its
 // buttons and gets refreshed. Button presses are handled in ./commands/controls.ts.
-import {ActionRowData, ButtonStyle, Client, ComponentType, InteractionButtonComponentData, Message} from 'discord.js';
+import {
+  ActionRowData,
+  ButtonStyle,
+  Client,
+  ComponentType,
+  escapeMarkdown,
+  InteractionButtonComponentData,
+  Message,
+} from 'discord.js';
 import type Player from '../services/player.js';
 import {STATUS} from '../services/player-types.js';
 import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
+import {truncate} from '../utils/string.js';
+import {prettyTime} from '../utils/time.js';
 import {messages} from './messages.js';
 
 export const CONTROL_PREFIX = 'livimuse:';
@@ -55,11 +65,35 @@ export const buildControlRows = (player: Player): Array<ActionRowData<Interactio
   ),
 ];
 
-// The card: Muse's embed plus the buttons.
-export const buildCard = (player: Player) => ({
-  embeds: [buildPlayingMessageEmbed(player)],
-  components: buildControlRows(player),
-});
+export const UP_NEXT_COUNT = 3;
+
+// e.g. "`1.` Song title `[3:07]`", like /queue but without links to keep the card compact.
+const upNextLines = (player: Player) => {
+  const queue = player.getQueue();
+  const lines = queue.slice(0, UP_NEXT_COUNT).map((song, index) => {
+    const title = escapeMarkdown(truncate(song.title.replace(/\[.*\]/, '').trim(), 48));
+    const duration = song.isLive ? 'live' : prettyTime(song.length);
+    return `\`${index + 1}.\` ${title} \`[${duration}]\``;
+  });
+
+  if (queue.length > UP_NEXT_COUNT) {
+    lines.push(messages.upNextMore(queue.length - UP_NEXT_COUNT));
+  }
+
+  return lines;
+};
+
+// The card: Muse's embed, the next few songs, and the buttons.
+export const buildCard = (player: Player) => {
+  const embed = buildPlayingMessageEmbed(player);
+  const upNext = upNextLines(player);
+
+  if (upNext.length > 0) {
+    embed.addFields({name: messages.upNextTitle, value: upNext.join('\n')});
+  }
+
+  return {embeds: [embed], components: buildControlRows(player)};
+};
 
 // Spread after `embeds:` in a card's message options. Adds nothing when no song is playing.
 export const withControls = (player: Player) => (player.getCurrent() ? buildCard(player) : {});
@@ -90,6 +124,7 @@ const cardState = (player: Player) => [
   player.loopCurrentSong,
   player.loopCurrentQueue,
   player.getVolume(),
+  player.getQueue().slice(0, UP_NEXT_COUNT + 1).map(song => song.url).join(','),
 ].join(':');
 
 const stopTimers = (card: LiveCard) => {
