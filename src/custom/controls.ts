@@ -81,7 +81,7 @@ const upNextLines = (player: Player) => {
   const lines = queue.slice(0, count).map((song, index) => {
     const title = escapeMarkdown(truncate(song.title.replace(/\[.*\]/, '').trim(), 48));
     const duration = song.isLive ? 'live' : prettyTime(song.length);
-    return `\`${index + 1}.\` ${title} \`[${duration}]\``;
+    return `\`${index + 1}.\` ${title} \`[${duration}]\`${messages.upNextRequester(`<@${song.requestedBy}>`)}`;
   });
 
   if (count > 0 && queue.length > count) {
@@ -91,13 +91,32 @@ const upNextLines = (player: Player) => {
   return lines;
 };
 
-// The card: Muse's embed, the next few songs, and the buttons.
+const lastActions = new Map<string, string>();
+
+// Shown on the card as "Last: ⏸️ paused by @someone" until the next button press.
+export const setLastAction = (guildId: string, action: string, userId: string): string => {
+  const text = messages.byUser(action, `<@${userId}>`);
+  lastActions.set(guildId, text);
+  return text;
+};
+
+export const clearLastAction = (guildId: string): void => {
+  lastActions.delete(guildId);
+};
+
+// The card: Muse's embed, the next few songs, the last button press, and the buttons.
 export const buildCard = (player: Player) => {
   const embed = buildPlayingMessageEmbed(player);
   const upNext = upNextLines(player);
 
   if (upNext.length > 0) {
     embed.addFields({name: messages.upNextTitle, value: upNext.join('\n')});
+  }
+
+  const lastAction = lastActions.get(player.guildId);
+
+  if (lastAction) {
+    embed.addFields({name: messages.lastActionTitle, value: lastAction});
   }
 
   return {embeds: [embed], components: buildControlRows(player)};
@@ -126,6 +145,7 @@ const cardState = (player: Player) => [
   player.loopCurrentQueue,
   player.getVolume(),
   player.getQueue().slice(0, upNextCount() + 1).map(song => song.url).join(','),
+  lastActions.get(player.guildId),
 ].join(':');
 
 const stopTimers = (card: LiveCard) => {

@@ -17,14 +17,16 @@ import Player, {STATUS} from '../../services/player.js';
 import Command from '../../commands/index.js';
 import {getMemberVoiceChannel} from '../../utils/channels.js';
 import errorMsg from '../../utils/error-msg.js';
-import {parseTime} from '../../utils/time.js';
+import {parseTime, prettyTime} from '../../utils/time.js';
 import durationStringToSeconds from '../../utils/duration-string-to-seconds.js';
 import {
   buildCard,
+  clearLastAction,
   controlIds,
   enableLiveCards,
   forgetCard,
   SEEK_STEP_SECONDS,
+  setLastAction,
   trackCard,
   withCardLock,
 } from '../controls.js';
@@ -179,22 +181,29 @@ export default class implements Command {
   }
 
   private async performInPlace(interaction: ButtonInteraction, player: Player) {
+    const {guildId, user} = interaction;
+
     switch (interaction.customId) {
       case controlIds.playPause:
-        await this.togglePlayback(interaction, player);
+        setLastAction(guildId!, await this.togglePlayback(interaction, player), user.id);
         break;
       case controlIds.rewind:
         await player.seek(Math.max(0, player.getPosition() - SEEK_STEP_SECONDS));
+        setLastAction(guildId!, messages.actionRewound(SEEK_STEP_SECONDS), user.id);
         break;
       case controlIds.forward:
         await player.seek(Math.min(player.getPosition() + SEEK_STEP_SECONDS, this.assertSeekable(player).length - 1));
+        setLastAction(guildId!, messages.actionForwarded(SEEK_STEP_SECONDS), user.id);
         break;
       case controlIds.loop:
-        this.cycleLoop(player);
+        setLastAction(guildId!, this.cycleLoop(player), user.id);
         break;
       case controlIds.shuffle:
         player.shuffle();
-        await interaction.followUp(messages.shuffled);
+        await interaction.followUp({
+          content: setLastAction(guildId!, messages.actionShuffled, user.id),
+          allowedMentions: {parse: []},
+        });
         break;
       default:
         break;
@@ -204,11 +213,12 @@ export default class implements Command {
   private async togglePlayback(interaction: ButtonInteraction, player: Player) {
     if (player.status === STATUS.PLAYING) {
       player.pause();
-      return;
+      return messages.actionPaused;
     }
 
     await this.ensureConnected(interaction, player);
     await player.play();
+    return messages.actionResumed;
   }
 
   // Cycle: off -> this song -> whole queue (if there is one) -> off
@@ -221,6 +231,12 @@ export default class implements Command {
     } else {
       player.loopCurrentSong = true;
     }
+
+    if (player.loopCurrentSong) {
+      return messages.actionLoopSong;
+    }
+
+    return player.loopCurrentQueue ? messages.actionLoopQueue : messages.actionLoopOff;
   }
 
   // Like /resume: rejoin the presser's channel if the bot left voice.
@@ -266,9 +282,12 @@ export default class implements Command {
         throw error;
       }
 
+      const action = setLastAction(interaction.guildId!, isSkip ? messages.actionSkipped : messages.actionWentBack, interaction.user.id);
+
       trackCard(await interaction.followUp({
-        content: isSkip ? messages.skipped : messages.unskipped,
+        content: action,
         ...cardPayload(player),
+        allowedMentions: {parse: []},
       }));
     } catch (error: unknown) {
       await interaction.followUp({content: errorMsg(error as Error), ephemeral: true}).catch(() => undefined);
@@ -282,8 +301,12 @@ export default class implements Command {
 
     player.stop();
     forgetCard(interaction.guildId!);
+    clearLastAction(interaction.guildId!);
     await interaction.update({components: []});
-    await interaction.followUp(messages.stopped);
+    await interaction.followUp({
+      content: messages.byUser(messages.actionStopped, `<@${interaction.user.id}>`),
+      allowedMentions: {parse: []},
+    });
   }
 
   private async jump(interaction: ButtonInteraction, player: Player) {
@@ -344,6 +367,7 @@ export default class implements Command {
     try {
       await withCardLock(submitted.guildId!, async () => {
         await player.seek(target);
+        setLastAction(submitted.guildId!, messages.actionJumped(prettyTime(target)), submitted.user.id);
         await submitted.editReply(cardPayload(player));
       });
     } catch (error: unknown) {

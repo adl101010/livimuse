@@ -33,6 +33,24 @@ export const messages = {
   // Playback buttons on the "now playing" card
   upNextTitle: 'Up next',
   upNextMore: (count: number) => `+${count} more`,
+  upNextRequester: (user: string) => ` · ${user}`,
+
+  // Who pressed a card button: posted for skip/back/shuffle/stop, and shown on
+  // the card as "Last". `user` is a mention like <@123>; it never pings.
+  byUser: (action: string, user: string) => `${action} by ${user}`,
+  lastActionTitle: 'Last',
+  actionSkipped: '⏭️ skipped',
+  actionWentBack: '⏮️ went back',
+  actionStopped: '⏹️ stopped',
+  actionShuffled: '🔀 shuffled',
+  actionPaused: '⏸️ paused',
+  actionResumed: '▶️ resumed',
+  actionRewound: (seconds: number) => `⏪ rewound ${seconds}s`,
+  actionForwarded: (seconds: number) => `⏩ forward ${seconds}s`,
+  actionJumped: (time: string) => `🕒 jumped to ${time}`,
+  actionLoopSong: '🔂 looping this song',
+  actionLoopQueue: '🔁 looping the queue',
+  actionLoopOff: '➡️ loop off',
   jumpToButton: 'Jump to',
   jumpToTitle: 'Jump to',
   jumpToField: 'Time (like 2:30)',
