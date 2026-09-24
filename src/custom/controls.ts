@@ -17,6 +17,7 @@ import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
 import {truncate} from '../utils/string.js';
 import {prettyTime} from '../utils/time.js';
 import {messages} from './messages.js';
+import {cardRefreshMs, describeSettings, repostAfterMessages, repostQuietMs, upNextCount} from './settings.js';
 
 export const CONTROL_PREFIX = 'livimuse:';
 
@@ -65,19 +66,18 @@ export const buildControlRows = (player: Player): Array<ActionRowData<Interactio
   ),
 ];
 
-export const UP_NEXT_COUNT = 3;
-
 // Rows like "`1.` Song title `[3:07]`", like /queue but without links to keep the card compact.
 const upNextLines = (player: Player) => {
   const queue = player.getQueue();
-  const lines = queue.slice(0, UP_NEXT_COUNT).map((song, index) => {
+  const count = upNextCount();
+  const lines = queue.slice(0, count).map((song, index) => {
     const title = escapeMarkdown(truncate(song.title.replace(/\[.*\]/, '').trim(), 48));
     const duration = song.isLive ? 'live' : prettyTime(song.length);
     return `\`${index + 1}.\` ${title} \`[${duration}]\``;
   });
 
-  if (queue.length > UP_NEXT_COUNT) {
-    lines.push(messages.upNextMore(queue.length - UP_NEXT_COUNT));
+  if (count > 0 && queue.length > count) {
+    lines.push(messages.upNextMore(queue.length - count));
   }
 
   return lines;
@@ -98,13 +98,6 @@ export const buildCard = (player: Player) => {
 // Spread after `embeds:` in a card's message options. Adds nothing when no song is playing.
 export const withControls = (player: Player) => (player.getCurrent() ? buildCard(player) : {});
 
-export const CARD_REFRESH_MS = 5000;
-
-// Repost the card at the bottom once this many messages are posted after it,
-// after the channel has been quiet for REPOST_QUIET_MS.
-export const REPOST_AFTER_MESSAGES = 3;
-export const REPOST_QUIET_MS = 5000;
-
 type LiveCard = {
   message: Message;
   timer?: NodeJS.Timeout;
@@ -124,7 +117,7 @@ const cardState = (player: Player) => [
   player.loopCurrentSong,
   player.loopCurrentQueue,
   player.getVolume(),
-  player.getQueue().slice(0, UP_NEXT_COUNT + 1).map(song => song.url).join(','),
+  player.getQueue().slice(0, upNextCount() + 1).map(song => song.url).join(','),
 ].join(':');
 
 const stopTimers = (card: LiveCard) => {
@@ -189,7 +182,7 @@ const startRefreshTimer = (guildId: string, card: LiveCard) => {
 
   card.timer = setInterval(() => {
     refresh(guildId);
-  }, CARD_REFRESH_MS);
+  }, cardRefreshMs());
   card.timer.unref();
 };
 
@@ -245,7 +238,10 @@ const onMessageCreate = (message: Message) => {
 
   card.messagesSince++;
 
-  if (card.messagesSince < REPOST_AFTER_MESSAGES) {
+  // Repost once enough messages are below the card (setting 0 turns this off).
+  const threshold = repostAfterMessages();
+
+  if (threshold === 0 || card.messagesSince < threshold) {
     return;
   }
 
@@ -257,7 +253,7 @@ const onMessageCreate = (message: Message) => {
   card.repostTimer = setTimeout(() => {
     card.repostTimer = undefined;
     void repost(guildId, card);
-  }, REPOST_QUIET_MS);
+  }, repostQuietMs());
   card.repostTimer.unref();
 };
 
@@ -271,6 +267,7 @@ export const enableLiveCards = (lookup: (guildId: string) => Player, client: Cli
   if (!listening) {
     listening = true;
     client.on('messageCreate', onMessageCreate);
+    console.log(`LiviMuse now-playing card: ${describeSettings()}`);
   }
 };
 

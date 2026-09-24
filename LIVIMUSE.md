@@ -8,6 +8,7 @@ A fork of [Muse](https://github.com/museofficial/muse) with custom replies and c
 | --- | --- |
 | Bot reply wording | `src/custom/messages.ts` |
 | Playback buttons on the now-playing card, `/controls` | `src/custom/controls.ts`, `src/custom/commands/controls.ts` |
+| Card timing settings (`LIVIMUSE_*` env vars, see `docker-compose.yml`) | `src/custom/settings.ts` |
 | Our own slash commands | `src/custom/commands/` (copy `example.ts`, list it in `index.ts`) |
 | Daily upstream merge | `.github/workflows/livimuse-sync.yml` |
 | Image build → `ghcr.io/adl101010/livimuse` | `.github/workflows/livimuse-build.yml` |

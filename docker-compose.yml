@@ -14,3 +14,8 @@ services:
       # Updates yt-dlp (the YouTube downloader) on every start, since YouTube
       # breaks more often than Muse releases.
       - YT_DLP_AUTO_UPDATE=true
+      # Optional now-playing card settings (defaults shown):
+      # - LIVIMUSE_CARD_REFRESH_SECONDS=5     # how often the time updates (minimum 2)
+      # - LIVIMUSE_REPOST_AFTER_MESSAGES=3    # messages below the card before it reposts (0 = never)
+      # - LIVIMUSE_REPOST_QUIET_SECONDS=5     # how long chat must be quiet before reposting
+      # - LIVIMUSE_UP_NEXT_COUNT=3            # songs under "Up next" (0 = hide, max 10)
