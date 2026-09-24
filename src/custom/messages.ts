@@ -3,34 +3,34 @@
 // `**text**` is bold in Discord.
 
 export const messages = {
-  // Put in front of every error, e.g. "🚫 ope: nothing is playing". Keep the trailing space.
-  errorPrefix: '🚫 ope: ',
+  // Put in front of every error, e.g. "🚫 nothing is playing". Keep the trailing space.
+  errorPrefix: '🚫 ',
   unknownError: 'unknown error',
 
-  disconnected: 'u betcha, disconnected',
-  stopped: 'u betcha, stopped',
-  paused: 'the stop-and-go light is now red',
-  resumed: 'the stop-and-go light is now green',
-  skipped: 'keep \'er movin\'',
-  unskipped: 'back \'er up\'',
-  cleared: 'clearer than a field after a fresh harvest',
+  disconnected: 'disconnected',
+  stopped: 'stopped',
+  paused: 'paused',
+  resumed: 'resumed',
+  skipped: 'skipped',
+  unskipped: 'unskipped',
+  cleared: 'cleared',
   shuffled: 'shuffled',
-  removed: ':wastebasket: removed',
-  replayed: '👍 replayed the current song',
-  seeked: (position: string) => `👍 seeked to ${position}`,
+  removed: 'removed',
+  replayed: 'replayed the current song',
+  seeked: (position: string) => `seeked to ${position}`,
   moved: (title: string, position: number) => `moved **${title}** to position **${position}**`,
-  volumeSet: (level: number) => `Set volume to ${level}%`,
+  volumeSet: (level: number) => `volume set to ${level}%`,
 
-  loopOn: 'looped :)',
-  loopOff: 'stopped looping :(',
-  loopQueueOn: 'looped queue :)',
-  loopQueueOff: 'stopped looping queue :(',
+  loopOn: 'looping song',
+  loopOff: 'stopped looping song',
+  loopQueueOn: 'looping queue',
+  loopQueueOff: 'stopped looping queue',
 
   noFavorites: 'there aren\'t any favorites yet',
-  favoriteCreated: '👍 favorite created',
-  favoriteRemoved: '👍 favorite removed',
+  favoriteCreated: 'favorite created',
+  favoriteRemoved: 'favorite removed',
 
   // `extra` is upstream's status suffix, e.g. " (resuming playback)" or " (1 song was not found)", or ''.
-  songAdded: (title: string, toFront: boolean, skipped: boolean, extra: string) => `u betcha, **${title}** added to the${toFront ? ' front of the' : ''} queue${skipped ? ' and current track skipped' : ''}${extra}`,
-  songsAdded: (title: string, otherCount: number, skipped: boolean, extra: string) => `u betcha, **${title}** and ${otherCount} other songs were added to the queue${skipped ? ' and current track skipped' : ''}${extra}`,
+  songAdded: (title: string, toFront: boolean, skipped: boolean, extra: string) => `**${title}** added to the${toFront ? ' front of the' : ''} queue${skipped ? ' and current track skipped' : ''}${extra}`,
+  songsAdded: (title: string, otherCount: number, skipped: boolean, extra: string) => `**${title}** and ${otherCount} other ${otherCount === 1 ? 'song was' : 'songs were'} added to the queue${skipped ? ' and current track skipped' : ''}${extra}`,
 };
