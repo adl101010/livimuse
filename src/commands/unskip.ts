@@ -5,6 +5,7 @@ import PlayerManager from '../managers/player.js';
 import Command from './index.js';
 import {SlashCommandBuilder} from '@discordjs/builders';
 import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
+import {messages} from '../custom/messages.js';
 
 @injectable()
 export default class implements Command {
@@ -27,7 +28,7 @@ export default class implements Command {
     try {
       await player.back();
       await interaction.followUp({
-        content: 'back \'er up\'',
+        content: messages.unskipped,
         embeds: player.getCurrent() ? [buildPlayingMessageEmbed(player)] : [],
       });
       await interaction.deleteReply().catch(() => undefined);

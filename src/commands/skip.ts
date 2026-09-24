@@ -5,6 +5,7 @@ import PlayerManager from '../managers/player.js';
 import Command from './index.js';
 import {SlashCommandBuilder} from '@discordjs/builders';
 import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
+import {messages} from '../custom/messages.js';
 
 @injectable()
 export default class implements Command {
@@ -37,7 +38,7 @@ export default class implements Command {
     try {
       await player.forward(numToSkip);
       await interaction.followUp({
-        content: 'keep \'er movin\'',
+        content: messages.skipped,
         embeds: player.getCurrent() ? [buildPlayingMessageEmbed(player)] : [],
       });
       await interaction.deleteReply().catch(() => undefined);

@@ -7,6 +7,7 @@ import {STATUS} from '../services/player.js';
 import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
 import {getMemberVoiceChannel, getMostPopularVoiceChannel} from '../utils/channels.js';
 import {ChatInputCommandInteraction, GuildMember} from 'discord.js';
+import {messages} from '../custom/messages.js';
 
 @injectable()
 export default class implements Command {
@@ -42,7 +43,7 @@ export default class implements Command {
     }
 
     await interaction.followUp({
-      content: 'the stop-and-go light is now green',
+      content: messages.resumed,
       embeds: [buildPlayingMessageEmbed(player)],
     });
     await interaction.deleteReply().catch(() => undefined);
