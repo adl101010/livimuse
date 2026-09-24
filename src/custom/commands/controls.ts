@@ -31,6 +31,7 @@ import {
   withCardLock,
 } from '../controls.js';
 import {messages} from '../messages.js';
+import {assertDj} from '../permissions.js';
 import {startYtDlpUpdates} from '../yt-dlp-updates.js';
 
 const JUMP_MODAL_ID = 'livimuse:jump-modal';
@@ -82,6 +83,7 @@ export default class implements Command {
 
   // Errors thrown before the press is acknowledged are shown privately by bot.ts.
   public async handleButtonInteraction(interaction: ButtonInteraction): Promise<void> {
+    assertDj(interaction);
     const player = this.playerManager.get(interaction.guildId!);
     this.assertInPlayerChannel(interaction, player);
 

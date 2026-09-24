@@ -20,3 +20,6 @@ services:
       # - LIVIMUSE_REPOST_QUIET_SECONDS=5     # how long chat must be quiet before reposting
       # - LIVIMUSE_UP_NEXT_COUNT=3            # songs under "Up next" (0 = hide, max 10)
       # - LIVIMUSE_YT_DLP_UPDATE_HOURS=24     # re-check yt-dlp while running (0 = startup only)
+      # Only admins, Manage Server, and this role (by name, any server) can use buttons and commands:
+      # - LIVIMUSE_DJ_ROLE=DJ
+      # - LIVIMUSE_OPEN_COMMANDS=play         # commands everyone else can still use

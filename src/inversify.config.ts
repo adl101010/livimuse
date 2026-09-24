@@ -42,6 +42,7 @@ import ThirdParty from './services/third-party.js';
 import FileCacheProvider from './services/file-cache.js';
 import KeyValueCacheProvider from './services/key-value-cache.js';
 import {customCommands} from './custom/commands/index.js';
+import {gateCommands} from './custom/permissions.js';
 
 const container = new Container();
 
@@ -102,10 +103,11 @@ if (config.SPOTIFY_CLIENT_ID !== '' && config.SPOTIFY_CLIENT_SECRET !== '') {
   container.bind<Command>(TYPES.Command).to(command).inSingletonScope();
 });
 
-// LiviMuse custom commands
+// LiviMuse custom commands, and the DJ role check on every command
 customCommands.forEach(command => {
   container.bind<Command>(TYPES.Command).to(command).inSingletonScope();
 });
+gateCommands(container);
 
 // Static libraries
 container.bind(TYPES.FileCache).to(FileCacheProvider);

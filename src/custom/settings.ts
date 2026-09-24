@@ -36,8 +36,23 @@ export const ytDlpUpdateHours = () => {
   return hours > 0 && hours < 1 ? 1 : hours;
 };
 
+const envList = (name: string, fallback = '') => (process.env[name] ?? fallback)
+  .split(',')
+  .map(item => item.trim())
+  .filter(item => item.length > 0);
+
+// Role name(s) allowed to control playback, e.g. "DJ" or "DJ,Music Mod". Unset = no restrictions.
+export const djRoleNames = () => envList('LIVIMUSE_DJ_ROLE').map(name => name.toLowerCase());
+
+// Name to show in "you need the DJ role" errors.
+export const djRoleLabel = () => envList('LIVIMUSE_DJ_ROLE')[0] ?? 'DJ';
+
+// Commands anyone can use when LIVIMUSE_DJ_ROLE is set, e.g. "play,queue,now-playing".
+export const openCommands = () => envList('LIVIMUSE_OPEN_COMMANDS', 'play').map(name => name.replace(/^\//, '').toLowerCase());
+
 export const describeSettings = () => [
   `card refresh ${cardRefreshMs() / 1000}s`,
   repostAfterMessages() === 0 ? 'repost off' : `repost after ${repostAfterMessages()} messages + ${repostQuietMs() / 1000}s quiet`,
   `up next ${upNextCount()}`,
+  djRoleNames().length === 0 ? 'DJ role off' : `DJ role ${envList('LIVIMUSE_DJ_ROLE').join('/')}, open commands /${openCommands().join(' /')}`,
 ].join(', ');

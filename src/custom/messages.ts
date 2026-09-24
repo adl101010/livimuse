@@ -35,6 +35,10 @@ export const messages = {
   upNextMore: (count: number) => `+${count} more`,
   upNextRequester: (user: string) => ` · ${user}`,
 
+  // LIVIMUSE_DJ_ROLE restrictions
+  djOnly: (role: string) => `you need the ${role} role to do that`,
+  djOnlyPlayOptions: (role: string) => `you need the ${role} role to use skip or immediate with /play`,
+
   // Who pressed a card button: posted for skip/back/shuffle/stop, and shown on
   // the card as "Last". `user` is a mention like <@123>; it never pings.
   byUser: (action: string, user: string) => `${action} by ${user}`,
