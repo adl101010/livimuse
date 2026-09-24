@@ -29,6 +29,7 @@ import {
   withCardLock,
 } from '../controls.js';
 import {messages} from '../messages.js';
+import {startYtDlpUpdates} from '../yt-dlp-updates.js';
 
 const JUMP_MODAL_ID = 'livimuse:jump-modal';
 const JUMP_FIELD_ID = 'time';
@@ -63,6 +64,8 @@ export default class implements Command {
   constructor(@inject(TYPES.Managers.Player) playerManager: PlayerManager, @inject(TYPES.Client) client: Client) {
     this.playerManager = playerManager;
     enableLiveCards(guildId => playerManager.get(guildId), client);
+    // This command is created once at startup, so it also starts our background jobs.
+    startYtDlpUpdates();
   }
 
   public async execute(interaction: ChatInputCommandInteraction): Promise<void> {

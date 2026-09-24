@@ -30,6 +30,12 @@ export const repostQuietMs = () => envNumber('LIVIMUSE_REPOST_QUIET_SECONDS', 5,
 // Songs listed under "Up next". 0 = hide the section.
 export const upNextCount = () => Math.round(envNumber('LIVIMUSE_UP_NEXT_COUNT', 3, 0, 10));
 
+// Hours between yt-dlp update checks while running (needs YT_DLP_AUTO_UPDATE=true). 0 = only at startup.
+export const ytDlpUpdateHours = () => {
+  const hours = envNumber('LIVIMUSE_YT_DLP_UPDATE_HOURS', 24, 0, 24 * 30);
+  return hours > 0 && hours < 1 ? 1 : hours;
+};
+
 export const describeSettings = () => [
   `card refresh ${cardRefreshMs() / 1000}s`,
   repostAfterMessages() === 0 ? 'repost off' : `repost after ${repostAfterMessages()} messages + ${repostQuietMs() / 1000}s quiet`,
