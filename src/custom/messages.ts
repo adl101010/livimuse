@@ -31,6 +31,7 @@ export const messages = {
   favoriteRemoved: 'favorite removed',
 
   // Playback buttons on the "now playing" card
+  cardEnds: 'Ends',
   jumpToButton: 'Jump to',
   jumpToTitle: 'Jump to',
   jumpToField: 'Time (like 2:30)',

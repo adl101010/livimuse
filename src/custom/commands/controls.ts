@@ -14,21 +14,26 @@ import {TYPES} from '../../types.js';
 import PlayerManager from '../../managers/player.js';
 import Player, {STATUS} from '../../services/player.js';
 import Command from '../../commands/index.js';
-import {buildPlayingMessageEmbed} from '../../utils/build-embed.js';
 import {getMemberVoiceChannel} from '../../utils/channels.js';
 import errorMsg from '../../utils/error-msg.js';
 import {parseTime} from '../../utils/time.js';
 import durationStringToSeconds from '../../utils/duration-string-to-seconds.js';
-import {controlIds, forgetCard, SEEK_STEP_SECONDS, trackCard, withControls} from '../controls.js';
+import {
+  buildCard,
+  controlIds,
+  enableLiveCards,
+  forgetCard,
+  SEEK_STEP_SECONDS,
+  trackCard,
+  withCardLock,
+} from '../controls.js';
 import {messages} from '../messages.js';
 
 const JUMP_MODAL_ID = 'livimuse:jump-modal';
 const JUMP_FIELD_ID = 'time';
 const JUMP_TIMEOUT_MS = 2 * 60 * 1000;
 
-const cardPayload = (player: Player) => (player.getCurrent()
-  ? {embeds: [buildPlayingMessageEmbed(player)], ...withControls(player)}
-  : {embeds: [], components: []});
+const cardPayload = (player: Player) => (player.getCurrent() ? buildCard(player) : {embeds: [], components: []});
 
 const parseJumpTime = (input: string): number => {
   const time = input.trim();
@@ -56,6 +61,7 @@ export default class implements Command {
 
   constructor(@inject(TYPES.Managers.Player) playerManager: PlayerManager) {
     this.playerManager = playerManager;
+    enableLiveCards(guildId => playerManager.get(guildId));
   }
 
   public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -124,8 +130,10 @@ export default class implements Command {
     await interaction.deferUpdate();
 
     try {
-      await this.performInPlace(interaction, player);
-      await interaction.editReply(cardPayload(player));
+      await withCardLock(interaction.guildId!, async () => {
+        await this.performInPlace(interaction, player);
+        await interaction.editReply(cardPayload(player));
+      });
     } catch (error: unknown) {
       await interaction.followUp({content: errorMsg(error as Error), ephemeral: true}).catch(() => undefined);
     }
@@ -324,8 +332,10 @@ export default class implements Command {
     await submitted.deferUpdate();
 
     try {
-      await player.seek(target);
-      await submitted.editReply(cardPayload(player));
+      await withCardLock(submitted.guildId!, async () => {
+        await player.seek(target);
+        await submitted.editReply(cardPayload(player));
+      });
     } catch (error: unknown) {
       await submitted.followUp({content: errorMsg(error as Error), ephemeral: true}).catch(() => undefined);
     }
