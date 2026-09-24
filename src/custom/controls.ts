@@ -67,7 +67,7 @@ export const buildControlRows = (player: Player): Array<ActionRowData<Interactio
 
 export const UP_NEXT_COUNT = 3;
 
-// e.g. "`1.` Song title `[3:07]`", like /queue but without links to keep the card compact.
+// Rows like "`1.` Song title `[3:07]`", like /queue but without links to keep the card compact.
 const upNextLines = (player: Player) => {
   const queue = player.getQueue();
   const lines = queue.slice(0, UP_NEXT_COUNT).map((song, index) => {
