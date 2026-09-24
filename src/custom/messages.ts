@@ -30,6 +30,13 @@ export const messages = {
   favoriteCreated: 'favorite created',
   favoriteRemoved: 'favorite removed',
 
+  // Playback buttons on the "now playing" card
+  jumpToButton: 'Jump to',
+  jumpToTitle: 'Jump to',
+  jumpToField: 'Time (like 2:30)',
+  controlsNotInVoice: 'join the voice channel to use these',
+  controlsWrongChannel: 'join the bot\'s voice channel to use these',
+
   // `extra` is upstream's status suffix, e.g. " (resuming playback)" or " (1 song was not found)", or ''.
   songAdded: (title: string, toFront: boolean, skipped: boolean, extra: string) => `**${title}** added to the${toFront ? ' front of the' : ''} queue${skipped ? ' and current track skipped' : ''}${extra}`,
   songsAdded: (title: string, otherCount: number, skipped: boolean, extra: string) => `**${title}** and ${otherCount} other ${otherCount === 1 ? 'song was' : 'songs were'} added to the queue${skipped ? ' and current track skipped' : ''}${extra}`,

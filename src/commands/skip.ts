@@ -6,6 +6,7 @@ import Command from './index.js';
 import {SlashCommandBuilder} from '@discordjs/builders';
 import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
 import {messages} from '../custom/messages.js';
+import {trackCard, withControls} from '../custom/controls.js';
 
 @injectable()
 export default class implements Command {
@@ -37,10 +38,11 @@ export default class implements Command {
 
     try {
       await player.forward(numToSkip);
-      await interaction.followUp({
+      trackCard(await interaction.followUp({
         content: messages.skipped,
         embeds: player.getCurrent() ? [buildPlayingMessageEmbed(player)] : [],
-      });
+        ...withControls(player),
+      }));
       await interaction.deleteReply().catch(() => undefined);
     } catch (error: unknown) {
       if (error instanceof Error && error.message === 'No songs in queue to forward to.') {

@@ -13,6 +13,7 @@ import Config from './config.js';
 import KeyValueCacheProvider from './key-value-cache.js';
 import {ONE_HOUR_IN_SECONDS} from '../utils/constants.js';
 import {messages} from '../custom/messages.js';
+import {trackCard, withControls} from '../custom/controls.js';
 
 const isSameQueueEntry = (capturedId: number | null, currentId: number | null) => (
   capturedId !== null && capturedId === currentId
@@ -128,9 +129,10 @@ export default class AddQueryToQueue {
     }
 
     if (shouldShowPlayingEmbed) {
-      await interaction.editReply({
+      trackCard(await interaction.editReply({
         embeds: [buildPlayingMessageEmbed(player)],
-      });
+        ...withControls(player),
+      }));
     }
 
     let didSkipCurrentTrack = false;

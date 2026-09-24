@@ -5,6 +5,7 @@ import PlayerManager from '../managers/player.js';
 import Command from './index.js';
 import {SlashCommandBuilder} from '@discordjs/builders';
 import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
+import {trackCard, withControls} from '../custom/controls.js';
 
 @injectable()
 export default class implements Command {
@@ -25,8 +26,10 @@ export default class implements Command {
       throw new Error('nothing is currently playing');
     }
 
-    await interaction.reply({
+    trackCard(await interaction.reply({
       embeds: [buildPlayingMessageEmbed(player)],
-    });
+      ...withControls(player),
+      fetchReply: true,
+    }));
   }
 }

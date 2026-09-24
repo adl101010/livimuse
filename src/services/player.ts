@@ -36,6 +36,7 @@ import {getGuildSettings} from '../utils/get-guild-settings.js';
 import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
 import {getSoundCloudMediaSource, getYouTubeMediaSource, YtDlpMediaUnavailableError} from '../utils/yt-dlp.js';
 import {Setting} from '@prisma/client';
+import {trackCard, withControls} from '../custom/controls.js';
 
 export {DEFAULT_VOLUME, MediaSource, STATUS};
 export type {AgeRestrictedFallbackResolver, PlayerEvents, QueuedPlaylist, QueuedSong, SongMetadata};
@@ -1060,9 +1061,10 @@ export default class {
       const settings = await getGuildSettings(this.guildId);
       const {autoAnnounceNextSong} = settings;
       if (autoAnnounceNextSong && this.currentChannel) {
-        await this.currentChannel.send({
+        trackCard(await this.currentChannel.send({
           embeds: [buildPlayingMessageEmbed(this)],
-        });
+          ...withControls(this),
+        }));
       }
     }
   }

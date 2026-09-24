@@ -7,12 +7,13 @@ A fork of [Muse](https://github.com/museofficial/muse) with custom replies and c
 | What | Where |
 | --- | --- |
 | Bot reply wording | `src/custom/messages.ts` |
+| Playback buttons on the now-playing card, `/controls` | `src/custom/controls.ts`, `src/custom/commands/controls.ts` |
 | Our own slash commands | `src/custom/commands/` (copy `example.ts`, list it in `index.ts`) |
 | Daily upstream merge | `.github/workflows/livimuse-sync.yml` |
 | Image build → `ghcr.io/adl101010/livimuse` | `.github/workflows/livimuse-build.yml` |
 | Dockge stack | `docker-compose.yml` |
 
-Upstream files are only touched by one-line `messages.*` swaps and a small block in `src/inversify.config.ts`, which keeps merge conflicts rare.
+Upstream files are only touched by one-line `messages.*` swaps, `trackCard`/`withControls` hooks where the card is sent, and a small block in `src/inversify.config.ts`, which keeps merge conflicts rare. `vitest.config.ts` runs Muse's tests against the original wording and without buttons, so our changes can't fail the build.
 
 ## When the sync fails
 

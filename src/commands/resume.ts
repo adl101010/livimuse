@@ -8,6 +8,7 @@ import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
 import {getMemberVoiceChannel, getMostPopularVoiceChannel} from '../utils/channels.js';
 import {ChatInputCommandInteraction, GuildMember} from 'discord.js';
 import {messages} from '../custom/messages.js';
+import {trackCard, withControls} from '../custom/controls.js';
 
 @injectable()
 export default class implements Command {
@@ -42,10 +43,11 @@ export default class implements Command {
       throw new Error('no playable songs found');
     }
 
-    await interaction.followUp({
+    trackCard(await interaction.followUp({
       content: messages.resumed,
       embeds: [buildPlayingMessageEmbed(player)],
-    });
+      ...withControls(player),
+    }));
     await interaction.deleteReply().catch(() => undefined);
   }
 }

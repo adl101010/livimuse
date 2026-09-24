@@ -3,8 +3,10 @@
 // commands when the bot restarts.
 import {interfaces} from 'inversify';
 import Command from '../../commands/index.js';
+import Controls from './controls.js';
 // To enable the template: import Example from './example.js';
 
 export const customCommands: Array<interfaces.Newable<Command>> = [
+  Controls,
   // Example,
 ];
