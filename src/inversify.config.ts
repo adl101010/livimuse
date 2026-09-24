@@ -50,6 +50,7 @@ const intents: GatewayIntentBits[] = [];
 intents.push(GatewayIntentBits.Guilds); // To listen for guildCreate event
 intents.push(GatewayIntentBits.GuildMessageReactions); // To listen for message reactions (messageReactionAdd event)
 intents.push(GatewayIntentBits.GuildVoiceStates); // To listen for voice state changes (voiceStateUpdate event)
+intents.push(GatewayIntentBits.GuildMessages); // LiviMuse: to repost the now-playing card when chat buries it (not message content)
 
 // Bot
 container.bind<Bot>(TYPES.Bot).to(Bot).inSingletonScope();

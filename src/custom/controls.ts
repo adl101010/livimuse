@@ -2,7 +2,7 @@
 // time. Upstream code spreads withControls() into each card it sends and passes
 // the sent message to trackCard(). Only the newest card per server keeps its
 // buttons and gets refreshed. Button presses are handled in ./commands/controls.ts.
-import {ActionRowData, ButtonStyle, ComponentType, InteractionButtonComponentData, Message} from 'discord.js';
+import {ActionRowData, ButtonStyle, Client, ComponentType, InteractionButtonComponentData, Message} from 'discord.js';
 import type Player from '../services/player.js';
 import {STATUS} from '../services/player-types.js';
 import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
@@ -74,20 +74,22 @@ export const withControls = (player: Player) => (player.getCurrent() ? buildCard
 
 export const CARD_REFRESH_MS = 5000;
 
+// Repost the card at the bottom once this many messages are posted after it,
+// after the channel has been quiet for REPOST_QUIET_MS.
+export const REPOST_AFTER_MESSAGES = 3;
+export const REPOST_QUIET_MS = 5000;
+
 type LiveCard = {
   message: Message;
   timer?: NodeJS.Timeout;
   inFlight?: Promise<void>;
   lastState?: string;
+  messagesSince: number;
+  repostTimer?: NodeJS.Timeout;
 };
 
 const liveCards = new Map<string, LiveCard>();
 let lookupPlayer: ((guildId: string) => Player) | undefined;
-
-// Called once at startup so the refresh timer can find each server's player.
-export const enableLiveCards = (lookup: (guildId: string) => Player): void => {
-  lookupPlayer = lookup;
-};
 
 // Anything besides the position that would change what the card shows.
 const cardState = (player: Player) => [
@@ -98,10 +100,15 @@ const cardState = (player: Player) => [
   player.getVolume(),
 ].join(':');
 
-const stopTimer = (card: LiveCard) => {
+const stopTimers = (card: LiveCard) => {
   if (card.timer) {
     clearInterval(card.timer);
     card.timer = undefined;
+  }
+
+  if (card.repostTimer) {
+    clearTimeout(card.repostTimer);
+    card.repostTimer = undefined;
   }
 };
 
@@ -109,7 +116,7 @@ export const forgetCard = (guildId: string): void => {
   const card = liveCards.get(guildId);
 
   if (card) {
-    stopTimer(card);
+    stopTimers(card);
     liveCards.delete(guildId);
   }
 };
@@ -148,35 +155,126 @@ const refresh = (guildId: string) => {
   });
 };
 
-const startTimer = (guildId: string, card: LiveCard) => {
-  stopTimer(card);
+const startRefreshTimer = (guildId: string, card: LiveCard) => {
+  if (card.timer) {
+    clearInterval(card.timer);
+  }
+
   card.timer = setInterval(() => {
     refresh(guildId);
   }, CARD_REFRESH_MS);
   card.timer.unref();
 };
 
+const makeLive = (message: Message) => {
+  const card: LiveCard = {message, messagesSince: 0};
+  liveCards.set(message.guildId!, card);
+  startRefreshTimer(message.guildId!, card);
+};
+
+// Post a fresh copy at the bottom of the same channel, then delete the old one.
+const repost = async (guildId: string, card: LiveCard) => {
+  const player = lookupPlayer?.(guildId);
+
+  if (liveCards.get(guildId) !== card || !player?.getCurrent()) {
+    return;
+  }
+
+  stopTimers(card);
+  await card.inFlight;
+
+  try {
+    const fresh = await card.message.channel.send(buildCard(player));
+
+    if (liveCards.get(guildId) !== card) {
+      // A new card was posted while we were sending; this copy is redundant.
+      await fresh.delete().catch(() => undefined);
+      return;
+    }
+
+    makeLive(fresh);
+    await card.message.delete().catch(() => undefined);
+  } catch {
+    // Probably missing Send Messages / Embed Links here: keep the old card.
+    if (liveCards.get(guildId) === card) {
+      card.messagesSince = 0;
+      startRefreshTimer(guildId, card);
+    }
+  }
+};
+
+const onMessageCreate = (message: Message) => {
+  const {guildId} = message;
+
+  if (!guildId) {
+    return;
+  }
+
+  const card = liveCards.get(guildId);
+
+  if (!card || message.channelId !== card.message.channelId || message.id === card.message.id) {
+    return;
+  }
+
+  card.messagesSince++;
+
+  if (card.messagesSince < REPOST_AFTER_MESSAGES) {
+    return;
+  }
+
+  // Wait for a quiet moment so a burst of messages causes one repost.
+  if (card.repostTimer) {
+    clearTimeout(card.repostTimer);
+  }
+
+  card.repostTimer = setTimeout(() => {
+    card.repostTimer = undefined;
+    void repost(guildId, card);
+  }, REPOST_QUIET_MS);
+  card.repostTimer.unref();
+};
+
+let listening = false;
+
+// Called once at startup: how to find each server's player, and the client to
+// watch for new messages burying the card.
+export const enableLiveCards = (lookup: (guildId: string) => Player, client: Client): void => {
+  lookupPlayer = lookup;
+
+  if (!listening) {
+    listening = true;
+    client.on('messageCreate', onMessageCreate);
+  }
+};
+
 // Remember the newest card per server, keep it refreshed, and strip the buttons
-// off the previous one.
+// off the previous one. A card nobody asked for (auto-announce) doesn't take
+// over from a live card in another channel; it just loses its buttons.
 export const trackCard = (sent: unknown): void => {
   if (!(sent instanceof Message) || !sent.guildId || sent.components.length === 0) {
     return;
   }
 
-  const previous = liveCards.get(sent.guildId);
+  const message = sent as Message;
+  const previous = liveCards.get(message.guildId!);
 
-  if (previous?.message.id === sent.id) {
+  if (previous?.message.id === message.id) {
+    return;
+  }
+
+  const fromCommand = Boolean(message.interaction ?? message.webhookId);
+
+  if (previous && !fromCommand && previous.message.channelId !== message.channelId) {
+    message.edit({components: []}).catch(() => undefined);
     return;
   }
 
   if (previous) {
-    stopTimer(previous);
+    stopTimers(previous);
     previous.message.edit({components: []}).catch(() => undefined);
   }
 
-  const card: LiveCard = {message: sent as Message};
-  liveCards.set(sent.guildId, card);
-  startTimer(sent.guildId, card);
+  makeLive(message);
 };
 
 // Button presses edit the card themselves. Pause the timer around them and let
@@ -184,16 +282,18 @@ export const trackCard = (sent: unknown): void => {
 export const withCardLock = async (guildId: string, action: () => Promise<void>): Promise<void> => {
   const card = liveCards.get(guildId);
 
-  if (card) {
-    stopTimer(card);
-    await card.inFlight;
+  if (card?.timer) {
+    clearInterval(card.timer);
+    card.timer = undefined;
   }
+
+  await card?.inFlight;
 
   try {
     await action();
   } finally {
     if (card && liveCards.get(guildId) === card) {
-      startTimer(guildId, card);
+      startRefreshTimer(guildId, card);
     }
   }
 };

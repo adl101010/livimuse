@@ -3,6 +3,7 @@
 import {
   ButtonInteraction,
   ChatInputCommandInteraction,
+  Client,
   ComponentType,
   GuildMember,
   ModalSubmitInteraction,
@@ -59,9 +60,9 @@ export default class implements Command {
 
   private readonly playerManager: PlayerManager;
 
-  constructor(@inject(TYPES.Managers.Player) playerManager: PlayerManager) {
+  constructor(@inject(TYPES.Managers.Player) playerManager: PlayerManager, @inject(TYPES.Client) client: Client) {
     this.playerManager = playerManager;
-    enableLiveCards(guildId => playerManager.get(guildId));
+    enableLiveCards(guildId => playerManager.get(guildId), client);
   }
 
   public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
