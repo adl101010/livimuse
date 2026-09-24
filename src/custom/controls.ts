@@ -55,19 +55,11 @@ export const buildControlRows = (player: Player): Array<ActionRowData<Interactio
   ),
 ];
 
-// The card: Muse's embed, plus a live "Ends in ..." timestamp while playing
-// (Discord counts it down on each viewer's screen), plus the buttons.
-export const buildCard = (player: Player) => {
-  const embed = buildPlayingMessageEmbed(player);
-  const song = player.getCurrent();
-
-  if (song && !song.isLive && player.status === STATUS.PLAYING) {
-    const endsAt = Math.round((Date.now() / 1000) + song.length - player.getPosition());
-    embed.addFields({name: messages.cardEnds, value: `<t:${endsAt}:R>`, inline: true});
-  }
-
-  return {embeds: [embed], components: buildControlRows(player)};
-};
+// The card: Muse's embed plus the buttons.
+export const buildCard = (player: Player) => ({
+  embeds: [buildPlayingMessageEmbed(player)],
+  components: buildControlRows(player),
+});
 
 // Spread after `embeds:` in a card's message options. Adds nothing when no song is playing.
 export const withControls = (player: Player) => (player.getCurrent() ? buildCard(player) : {});
