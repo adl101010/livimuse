@@ -1,13 +1,11 @@
 // LiviMuse: handles presses on the "now playing" card buttons, and adds
 // /controls to post a fresh card at the bottom of the chat.
 import {
-  ActionRowBuilder,
   ButtonInteraction,
   ChatInputCommandInteraction,
+  ComponentType,
   GuildMember,
-  ModalBuilder,
   ModalSubmitInteraction,
-  TextInputBuilder,
   TextInputStyle,
 } from 'discord.js';
 import {SlashCommandBuilder} from '@discordjs/builders';
@@ -273,16 +271,22 @@ export default class implements Command {
   private async jump(interaction: ButtonInteraction, player: Player) {
     this.assertSeekable(player);
 
-    await interaction.showModal(new ModalBuilder()
-      .setCustomId(JUMP_MODAL_ID)
-      .setTitle(messages.jumpToTitle)
-      .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(new TextInputBuilder()
-        .setCustomId(JUMP_FIELD_ID)
-        .setLabel(messages.jumpToField)
-        .setPlaceholder('2:30')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMaxLength(10))));
+    await interaction.showModal({
+      customId: JUMP_MODAL_ID,
+      title: messages.jumpToTitle,
+      components: [{
+        type: ComponentType.ActionRow,
+        components: [{
+          type: ComponentType.TextInput,
+          customId: JUMP_FIELD_ID,
+          label: messages.jumpToField,
+          placeholder: '2:30',
+          style: TextInputStyle.Short,
+          required: true,
+          maxLength: 10,
+        }],
+      }],
+    });
 
     const submitted = await interaction.awaitModalSubmit({
       time: JUMP_TIMEOUT_MS,

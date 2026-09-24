@@ -2,7 +2,7 @@
 // withControls() when building a card and trackCard() with the sent message, so
 // only the newest card in each server keeps its buttons. The button presses
 // themselves are handled in ./commands/controls.ts.
-import {ActionRowBuilder, ButtonBuilder, ButtonStyle, Message, MessageActionRowComponentBuilder} from 'discord.js';
+import {ActionRowData, ButtonStyle, ComponentType, InteractionButtonComponentData, Message} from 'discord.js';
 import type Player from '../services/player.js';
 import {STATUS} from '../services/player-types.js';
 import {messages} from './messages.js';
@@ -23,20 +23,30 @@ export const controlIds = {
 
 export const SEEK_STEP_SECONDS = 15;
 
-const button = (customId: string, emoji: string, label?: string) => {
-  const built = new ButtonBuilder().setCustomId(customId).setEmoji(emoji).setStyle(ButtonStyle.Secondary);
-  return label ? built.setLabel(label) : built;
-};
+// Plain data objects rather than ButtonBuilder: discord.js 14.11's builders are
+// typed against a different discord-api-types version and fail to compile.
+const button = (customId: string, emoji: string, label?: string): InteractionButtonComponentData => ({
+  type: ComponentType.Button,
+  style: ButtonStyle.Secondary,
+  customId,
+  emoji,
+  ...(label ? {label} : {}),
+});
 
-export const buildControlRows = (player: Player): Array<ActionRowBuilder<MessageActionRowComponentBuilder>> => [
-  new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+const row = (...components: InteractionButtonComponentData[]): ActionRowData<InteractionButtonComponentData> => ({
+  type: ComponentType.ActionRow,
+  components,
+});
+
+export const buildControlRows = (player: Player): Array<ActionRowData<InteractionButtonComponentData>> => [
+  row(
     button(controlIds.back, '⏮️'),
     button(controlIds.rewind, '⏪', `${SEEK_STEP_SECONDS}s`),
     button(controlIds.playPause, player.status === STATUS.PLAYING ? '⏸️' : '▶️'),
     button(controlIds.forward, '⏩', `${SEEK_STEP_SECONDS}s`),
     button(controlIds.skip, '⏭️'),
   ),
-  new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+  row(
     button(controlIds.jump, '🕒', messages.jumpToButton),
     button(controlIds.shuffle, '🔀'),
     button(controlIds.loop, '🔁'),
