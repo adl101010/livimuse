@@ -32,7 +32,7 @@ export const upNextCount = () => Math.round(envNumber('LIVIMUSE_UP_NEXT_COUNT', 
 
 // Hours between yt-dlp update checks while running (needs YT_DLP_AUTO_UPDATE=true). 0 = only at startup.
 export const ytDlpUpdateHours = () => {
-  const hours = envNumber('LIVIMUSE_YT_DLP_UPDATE_HOURS', 24, 0, 24 * 30);
+  const hours = envNumber('LIVIMUSE_YT_DLP_UPDATE_HOURS', 24, 0, 24 * 7);
   return hours > 0 && hours < 1 ? 1 : hours;
 };
 
