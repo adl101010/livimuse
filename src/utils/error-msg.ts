@@ -1,11 +1,13 @@
+import {messages} from '../custom/messages.js';
+
 export default (error?: string | Error): string => {
-  let str = 'unknown error';
+  let str = messages.unknownError;
 
   if (error) {
     if (typeof error === 'string') {
-      str = `🚫 ope: ${error}`;
+      str = `${messages.errorPrefix}${error}`;
     } else if (error instanceof Error) {
-      str = `🚫 ope: ${error.message}`;
+      str = `${messages.errorPrefix}${error.message}`;
     }
   }
 

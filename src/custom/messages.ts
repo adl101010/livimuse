@@ -3,6 +3,10 @@
 // `**text**` is bold in Discord.
 
 export const messages = {
+  // Put in front of every error, e.g. "🚫 ope: nothing is playing". Keep the trailing space.
+  errorPrefix: '🚫 ope: ',
+  unknownError: 'unknown error',
+
   disconnected: 'u betcha, disconnected',
   stopped: 'u betcha, stopped',
   paused: 'the stop-and-go light is now red',
