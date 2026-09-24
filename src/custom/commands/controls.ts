@@ -245,25 +245,31 @@ export default class implements Command {
       throw new Error('no song to go back to');
     }
 
-    await interaction.deferReply({ephemeral: true});
-
-    await this.ensureConnected(interaction, player);
+    // Acknowledge without posting anything, then post the new card as its own
+    // message. (A deferred private reply plus follow-up can end up replacing and
+    // then deleting the card.)
+    await interaction.deferUpdate();
 
     try {
-      await (isSkip ? player.forward(1) : player.back());
-    } catch (error: unknown) {
-      if (error instanceof Error && error.message.startsWith('No songs in queue')) {
-        throw new Error(isSkip ? 'no song to skip to' : 'no song to go back to');
+      await this.ensureConnected(interaction, player);
+
+      try {
+        await (isSkip ? player.forward(1) : player.back());
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message.startsWith('No songs in queue')) {
+          throw new Error(isSkip ? 'no song to skip to' : 'no song to go back to');
+        }
+
+        throw error;
       }
 
-      throw error;
+      trackCard(await interaction.followUp({
+        content: isSkip ? messages.skipped : messages.unskipped,
+        ...cardPayload(player),
+      }));
+    } catch (error: unknown) {
+      await interaction.followUp({content: errorMsg(error as Error), ephemeral: true}).catch(() => undefined);
     }
-
-    trackCard(await interaction.followUp({
-      content: isSkip ? messages.skipped : messages.unskipped,
-      ...cardPayload(player),
-    }));
-    await interaction.deleteReply().catch(() => undefined);
   }
 
   private async stop(interaction: ButtonInteraction, player: Player) {

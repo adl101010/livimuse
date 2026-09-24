@@ -19,6 +19,14 @@ import {prettyTime} from '../utils/time.js';
 import {messages} from './messages.js';
 import {cardRefreshMs, describeSettings, repostAfterMessages, repostQuietMs, upNextCount} from './settings.js';
 
+// Card lifecycle events go to the container log to make problems traceable.
+const log = (event: string, details: Record<string, unknown> = {}) => {
+  const parts = Object.entries(details).map(([key, value]) => `${key}=${String(value)}`);
+  console.log(`[livimuse card] ${event}${parts.length > 0 ? ' ' + parts.join(' ') : ''}`);
+};
+
+const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 export const CONTROL_PREFIX = 'livimuse:';
 
 export const controlIds = {
@@ -148,11 +156,13 @@ const editCard = async (guildId: string, card: LiveCard, player: Player) => {
       await card.message.edit(buildCard(player));
     } else {
       // Queue finished: leave the last song up, without buttons.
+      log('queue finished, removing buttons', {message: card.message.id});
       forgetCard(guildId);
       await card.message.edit({components: []});
     }
-  } catch {
+  } catch (error: unknown) {
     // Deleted, ephemeral, or no longer editable.
+    log('refresh failed, card no longer live', {message: card.message.id, error: errorText(error)});
     forgetCard(guildId);
   }
 };
@@ -188,6 +198,7 @@ const startRefreshTimer = (guildId: string, card: LiveCard) => {
 
 const makeLive = (message: Message) => {
   const card: LiveCard = {message, messagesSince: 0};
+  log('live', {message: message.id, channel: message.channelId});
   liveCards.set(message.guildId!, card);
   startRefreshTimer(message.guildId!, card);
 };
@@ -212,9 +223,11 @@ const repost = async (guildId: string, card: LiveCard) => {
       return;
     }
 
+    log('reposted', {old: card.message.id, new: fresh.id});
     makeLive(fresh);
     await card.message.delete().catch(() => undefined);
-  } catch {
+  } catch (error: unknown) {
+    log('repost failed, keeping old card', {message: card.message.id, error: errorText(error)});
     // Probably missing Send Messages / Embed Links here: keep the old card.
     if (liveCards.get(guildId) === card) {
       card.messagesSince = 0;
@@ -289,11 +302,13 @@ export const trackCard = (sent: unknown): void => {
   const fromCommand = Boolean(message.interaction ?? message.webhookId);
 
   if (previous && !fromCommand && previous.message.channelId !== message.channelId) {
+    log('announce card in another channel, removing its buttons', {message: message.id, channel: message.channelId, live: previous.message.id});
     message.edit({components: []}).catch(() => undefined);
     return;
   }
 
   if (previous) {
+    log('replaced, removing buttons', {old: previous.message.id, new: message.id, fromCommand});
     stopTimers(previous);
     previous.message.edit({components: []}).catch(() => undefined);
   }
