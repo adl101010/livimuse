@@ -512,6 +512,58 @@ export default class {
     return this.voiceActivityVolumeTarget ?? this.volume ?? this.defaultVolume;
   }
 
+  // LiviMuse: download and convert a song into the file cache ahead of time, the
+  // way getStream would on first play, without touching the audio player.
+  // Returns false when the song isn't cacheable or is already cached.
+  async preloadIntoCache(song: QueuedSong): Promise<boolean> {
+    // Same rules as getStream: no HLS, livestreams, songs over 30 minutes, or mid-song starts.
+    if (song.source === MediaSource.HLS || song.isLive || song.length >= 30 * 60 || song.offset) {
+      return false;
+    }
+
+    // Matches what playback passes to getStream for a song started from the beginning.
+    const to = song.length + song.offset;
+    const cacheKey = this.audioCacheKey(song, to);
+
+    if (await this.fileCache.getEntryFor(this.getHashForCache(cacheKey))) {
+      return false;
+    }
+
+    const mediaSource = await (song.source === MediaSource.SoundCloud
+      ? getSoundCloudMediaSource(song.url)
+      : getYouTubeMediaSource(song.url));
+
+    if (mediaSource.isLive) {
+      return false;
+    }
+
+    const ffmpegInputOptions = [
+      '-reconnect',
+      '1',
+      '-reconnect_streamed',
+      '1',
+      '-reconnect_delay_max',
+      '5',
+      ...this.buildFfmpegHeaderOptions(mediaSource.headers),
+    ];
+
+    ffmpegInputOptions.push('-to', to.toString());
+
+    const stream = await this.createReadStream({url: mediaSource.url, cacheKey, ffmpegInputOptions, cache: true});
+
+    // Read the output to the end (and discard it) so ffmpeg finishes and the cache entry is saved.
+    await new Promise<void>(resolve => {
+      stream.once('end', resolve);
+      stream.once('close', resolve);
+      stream.once('error', () => {
+        resolve();
+      });
+      stream.resume();
+    });
+
+    return true;
+  }
+
   private async connectWithRetries(channel: VoiceChannel, generation: number): Promise<void> {
     const settings = await getGuildSettings(this.guildId);
     if (generation !== this.voiceConnectionGeneration) {
@@ -814,58 +866,6 @@ export default class {
   // LiviMuse: shared by getStream and preloadIntoCache so both use the same cache entry.
   private audioCacheKey(song: QueuedSong, to?: number): string {
     return JSON.stringify(['audio-v2', song.source, song.url, to ?? null]);
-  }
-
-  // LiviMuse: download and convert a song into the file cache ahead of time, the
-  // way getStream would on first play, without touching the audio player.
-  // Returns false when the song isn't cacheable or is already cached.
-  async preloadIntoCache(song: QueuedSong): Promise<boolean> {
-    // Same rules as getStream: no HLS, livestreams, songs over 30 minutes, or mid-song starts.
-    if (song.source === MediaSource.HLS || song.isLive || song.length >= 30 * 60 || song.offset) {
-      return false;
-    }
-
-    // Matches what playback passes to getStream for a song started from the beginning.
-    const to = song.length + song.offset;
-    const cacheKey = this.audioCacheKey(song, to);
-
-    if (await this.fileCache.getEntryFor(this.getHashForCache(cacheKey))) {
-      return false;
-    }
-
-    const mediaSource = await (song.source === MediaSource.SoundCloud
-      ? getSoundCloudMediaSource(song.url)
-      : getYouTubeMediaSource(song.url));
-
-    if (mediaSource.isLive) {
-      return false;
-    }
-
-    const ffmpegInputOptions = [
-      '-reconnect',
-      '1',
-      '-reconnect_streamed',
-      '1',
-      '-reconnect_delay_max',
-      '5',
-      ...this.buildFfmpegHeaderOptions(mediaSource.headers),
-    ];
-
-    ffmpegInputOptions.push('-to', to.toString());
-
-    const stream = await this.createReadStream({url: mediaSource.url, cacheKey, ffmpegInputOptions, cache: true});
-
-    // Read the output to the end (and discard it) so ffmpeg finishes and the cache entry is saved.
-    await new Promise<void>(resolve => {
-      stream.once('end', resolve);
-      stream.once('close', resolve);
-      stream.once('error', () => {
-        resolve();
-      });
-      stream.resume();
-    });
-
-    return true;
   }
 
   private async getStream(song: QueuedSong, options: {seek?: number; to?: number} = {}): Promise<Readable> {
