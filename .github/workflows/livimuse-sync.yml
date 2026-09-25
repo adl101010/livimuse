@@ -60,6 +60,8 @@ jobs:
           set -uo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # Keep our README on merges (see .gitattributes).
+          git config merge.ours.driver true
 
           if git merge --no-edit -m "Merge upstream Muse ${TAG}" "${TAG}"; then
             git push origin HEAD:master

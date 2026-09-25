@@ -1,183 +1,266 @@
-<p align="center">
-  <img width="250" height="250" src="https://raw.githubusercontent.com/museofficial/muse/master/.github/logo.png">
-</p>
+# LiviMuse
 
-> [!IMPORTANT]
-> Muse is now community-maintained under the [`museofficial`](https://github.com/museofficial) organization. For Docker, use `ghcr.io/museofficial/muse` as the canonical image source. Docker Hub tags may be published as compatibility mirrors, but GHCR is the supported target for new deployments.
+A self-hosted Discord music bot with a live, button-driven player, DJ permissions, vote skip, and a tidy chat. It's built on [Muse](https://github.com/museofficial/muse) and adds a layer of features designed for groups of friends sharing one music channel.
 
-------
+```
+Now Playing
+keshi - B.Y.S.
+Requested by: @tofuug
+⏹ ▬▬▬🔘▬▬▬▬▬▬ [01:15/02:47] 🔉 12%
 
-Muse is a **highly-opinionated midwestern self-hosted** Discord music bot **that doesn't suck**. It's made for small to medium-sized Discord servers/guilds (think about a group the size of you, your friends, and your friend's friends).
+Up next
+1. Weston Estate - Close The Door [3:52] · @udmse5838
 
-![Hero graphic](.github/hero.png)
+Last
+⏸️ paused by @tofuug
 
-## Features
-
-- 🎥 Livestreams
-- ☁️ SoundCloud tracks, share links, and playlists
-- ⏩ Seeking within a song/video
-- 💾 Local caching for better performance
-- 📋 No vote-to-skip - this is anarchy, not a democracy
-- ↔️ Autoconverts playlists / artists / albums / songs from Spotify
-- ⭐ Users can save favorite queries for reuse
-- 1️⃣ Muse instance supports multiple guilds
-- 🔊 Configurable volume controls, including optional ducking when people speak
-- ✍️ Written in TypeScript, easily extendable
-- ❤️ Loyal Packers fan
-
-## Running
-
-Muse is written in TypeScript. You can either run Muse with Docker (recommended) or directly with Node.js. Both methods require the Discord and YouTube API keys below. Spotify keys are optional and enable Spotify URL conversion:
-
-- `DISCORD_TOKEN` can be acquired [here](https://discordapp.com/developers/applications) by creating a 'New Application', then going to 'Bot'.
-- `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` can be acquired [here](https://developer.spotify.com/dashboard/applications) with 'Create a Client ID'.
-- `YOUTUBE_API_KEY` can be acquired by [creating a new project](https://console.developers.google.com) in Google's Developer Console, enabling the YouTube API, and creating an API key under credentials.
-
-Muse will log a URL when run. Open this URL in a browser to invite Muse to your server. Muse will DM the server owner after it's added with setup instructions.
-
-A 64-bit OS is required to run Muse.
-
-### Versioning
-
-The `master` branch acts as the developing / bleeding edge branch and is not guaranteed to be stable.
-
-When running a production instance, I recommend that you use the [latest release](https://github.com/museofficial/muse/releases/).
-
-
-### 🐳 Docker
-
-There are a variety of image tags available:
-- `:2`: versions >= 2.0.0
-- `:2.1`: versions >= 2.1.0 and < 2.2.0
-- `:2.1.1`: an exact version specifier
-- `:latest`: whatever the latest version is
-- `:yt-dlp-latest`: the latest release rebuilt with the newest available `yt-dlp`
-
-(Replace empty config strings with correct values.)
-
-```bash
-docker run -it -v "$(pwd)/data":/data -e DISCORD_TOKEN='' -e SPOTIFY_CLIENT_ID='' -e SPOTIFY_CLIENT_SECRET='' -e YOUTUBE_API_KEY='' ghcr.io/museofficial/muse:latest
+[⏮️] [⏪ 15s] [⏸️] [⏩ 15s] [⏭️ 1/2]
+[➕ Add song] [🕒 Jump to] [⏹️]
 ```
 
-This starts Muse and creates a data directory in your current directory.
+---
 
-You can also store your tokens in an environment file and make it available to your container. By default, the container will look for a `/config` environment file. You can customize this path with the `ENV_FILE` environment variable to use with, for example, [docker secrets](https://docs.docker.com/engine/swarm/secrets/). 
+## Credit
 
-**Docker Compose**:
+LiviMuse is a fork of **[Muse](https://github.com/museofficial/muse)**, created by **[Max Isom](https://github.com/codetheweb)** and now community-maintained under the [`museofficial`](https://github.com/museofficial) organization. The core of the bot comes from Muse and its contributors: playback, YouTube, Spotify, and SoundCloud support, caching, favorites, and the slash commands. Muse is MIT-licensed, and so is this fork; see [LICENSE](LICENSE).
+
+If you want the original bot, use Muse. This fork exists to add the features below.
+
+## Built with Claude
+
+**Every change in this fork was written by [Claude](https://www.anthropic.com/claude)**, Anthropic's AI model, working in [Claude Code](https://claude.com/claude-code). That covers the features, the fixes, the build and sync pipelines, and this README. The repository owner directed the work, tested it on real servers, and decided what shipped. The code inherited from Muse was written by Muse's authors.
+
+## Independent by design
+
+LiviMuse doesn't depend on the Muse repository to run or to build:
+
+- **The image is self-contained.** Everything the bot needs at runtime is inside `ghcr.io/adl101010/livimuse`. Nothing contacts the Muse project.
+- **Builds use public registries only.** Docker Hub (Node base image), Debian (ffmpeg), npm (pinned by `yarn.lock`), and PyPI (yt-dlp). The full source lives in this repository.
+- **yt-dlp stays current on its own.** It updates from PyPI at startup and then every 24 hours while running, so YouTube-side breakage is usually fixed without a rebuild.
+- **Muse updates are optional.** A daily workflow merges new Muse releases when they appear. If Muse ever stops, the bot keeps working. The workflow would start failing, and you can disable it.
+
+What no fork can avoid: YouTube and Discord change their platforms over time. Most YouTube changes are handled by the yt-dlp updates. Occasionally a platform change needs a dependency upgrade in this repository and a rebuild.
+
+---
+
+## What LiviMuse adds
+
+### A live player card
+
+- **Playback buttons.** Back, rewind 15s, pause/resume, forward 15s, skip, **➕ Add song**, **🕒 Jump to**, and stop.
+- **Live time.** The card refreshes every few seconds while a song plays.
+- **Up next.** The next few songs, with their length and who queued them.
+- **"Last" line.** Shows the most recent button press and who pressed it, for example "⏸️ paused by @someone".
+- **Stays at the bottom.** When chat buries the card, the bot reposts it at the bottom once the channel goes quiet.
+- **One card with buttons at a time.** Older cards lose their buttons when a newer one is posted.
+- **`/controls`** posts a fresh card at any time.
+
+### Add songs without commands
+
+- **➕ Add song** opens a pop-up. Type a song name or paste a link, and it's queued exactly as if you'd used `/play`.
+
+### DJ role and permissions
+
+- Set `LIVIMUSE_DJ_ROLE=DJ`. Members of that role, plus admins and anyone with Manage Server, can use every command and button.
+- **Everyone else can only queue songs**, with `/play` or ➕ Add song. They can't use `/play`'s skip or immediate options. You can open more commands with `LIVIMUSE_OPEN_COMMANDS`, for example `play,queue,now-playing`.
+- **The role is matched by name** in every server, ignoring case, so one setting covers all your servers.
+- Blocked actions get a private "🚫 you need the DJ role to do that". Nobody else sees it.
+
+### Vote skip
+
+- **Without the DJ role, ⏭️ counts as a vote.** The song skips once **more than half** of the listeners in the voice channel agree: 2 of 2, 2 of 3, 3 of 4. The button shows progress like **⏭️ 1/2**.
+- **DJs skip instantly**, and so does whoever requested the song.
+- Only people in the voice channel count, and votes reset when the song changes.
+
+### Accountability
+
+- Button actions are credited: "⏭️ skipped by @x", "⏹️ stopped by @x", "🗳️ voted to skip (1/2) by @x".
+- Credited names never ping anyone.
+
+### Voice channel status
+
+- The current song appears under the voice channel's name in the sidebar: 🎵 while playing, ⏸️ while paused. It's cleared when playback stops.
+
+### Faster song changes
+
+- **The next song is prepared ahead of time.** About 20 seconds into each song, the bot downloads and converts the next one into its cache, so it starts almost instantly when its turn comes.
+
+### A tidy channel
+
+- **Plain-text confirmations are deleted after 60 seconds.** That covers messages like "volume set to 30%", "paused", and "added to the queue".
+- **Cards, embeds, and anything naming a person are kept.**
+
+### Smaller fixes and changes
+
+- **`/play` always posts a card.** Muse skipped it when the bot was already in voice with an empty queue.
+- **Neutral reply wording**, all in one editable file (see [Customizing replies](#customizing-replies)).
+- **Correct pluralization** of "1 other song".
+- **Logging.** Card and update activity is logged with `[livimuse card]`, `[livimuse yt-dlp]`, and similar prefixes, to make problems easy to trace.
+
+## Everything from Muse
+
+- 🎥 Livestreams, ☁️ SoundCloud, and ↔️ Spotify links (converted to YouTube)
+- ⏩ Seeking, 🔁 looping, 🔀 shuffling, and queue management
+- 💾 Local caching, and ⭐ saved favorite queries
+- 🔊 Volume control, with optional ducking when people speak
+- 🧩 SponsorBlock skipping, one instance serving multiple servers, and a custom bot status
+
+---
+
+## Setup
+
+### 1. Get the keys
+
+- **`DISCORD_TOKEN`:** in the [Discord Developer Portal](https://discord.com/developers/applications), create a **New Application**, open **Bot**, and click **Reset Token**. Give LiviMuse **its own application**. Don't share a bot with other software, because each program overwrites the other's slash commands.
+- **`YOUTUBE_API_KEY`:** in the [Google Cloud Console](https://console.developers.google.com), create a project, enable the **YouTube Data API v3**, and create an API key.
+- **`SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`** (optional): from the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/applications). These enable Spotify links.
+
+### 2. Run with Docker Compose
 
 ```yaml
 services:
-  muse:
-    image: ghcr.io/museofficial/muse:latest
-    restart: always
+  livimuse:
+    image: ghcr.io/adl101010/livimuse:latest
+    restart: unless-stopped
     volumes:
-      - ./muse:/data
-      # Optional: mount YouTube-only cookies for age-restricted videos.
-      # - ./youtube-cookies.txt:/run/secrets/youtube-cookies.txt:ro
+      - ./data:/data
     environment:
       - DISCORD_TOKEN=
       - YOUTUBE_API_KEY=
       - SPOTIFY_CLIENT_ID=
       - SPOTIFY_CLIENT_SECRET=
-      # - YT_DLP_COOKIES_PATH=/run/secrets/youtube-cookies.txt
+      - YT_DLP_AUTO_UPDATE=true
+      # - LIVIMUSE_DJ_ROLE=DJ
 ```
 
-If you keep the same `DISCORD_TOKEN`, reuse the same `/data` volume, and point your Compose service at a newer image tag, Muse will come back up with the same bot identity and persisted database/cache.
+The same file is in the repo as [`docker-compose.yml`](docker-compose.yml), with every option listed. It works as-is in Dockge or Portainer.
 
-### Node.js
+### 3. Invite the bot
 
-**Prerequisites**:
-* Node.js 22.12.0 or newer
-* ffmpeg (4.1 or later)
-* `yt-dlp` on your `PATH` (or set `YT_DLP_PATH` to its full path)
+At startup, the log prints `Ready! Invite the bot with https://discordapp.com/oauth2/authorize?...`. Open that link to add the bot to a server. In each server, make sure it can:
 
-1. `git clone https://github.com/museofficial/muse.git && cd muse`
-2. Copy `.env.example` to `.env` and populate with values
-3. I recommend checking out a tagged release with `git checkout v[latest release]`
-4. `yarn install` (or `npm i`)
-5. `yarn start` (or `npm run start`)
+| Permission | Why |
+|---|---|
+| Connect, Speak | Play music (requested by the invite link) |
+| Send Messages, Embed Links | Repost the player card at the bottom of the channel |
+| Set Voice Channel Status | Show the current song under the voice channel |
 
-**Note**: if you're on Windows, you may need to manually set the ffmpeg path. See [#345](https://github.com/museofficial/muse/issues/345) for details.
+Missing permissions don't break anything. The related feature just stays off, and a warning appears in the log.
 
-### Local validation
+### 4. Check the startup log
 
-Run the behavior suite locally with:
+One line summarizes the active settings:
+
+```
+LiviMuse now-playing card: card refresh 5s, repost after 3 messages + 5s quiet, up next 3, vote skip >50%, voice status on, preload next on, tidy after 60s, DJ role DJ, open commands /play
+```
+
+### Image tags
+
+| Tag | Meaning |
+|---|---|
+| `latest` | The newest build |
+| `2.11.8` | The newest build on that Muse version |
+| `2.11.8-c20dee5` | One exact build. **Pin this to roll back** if an update misbehaves |
+
+## Configuration
+
+### LiviMuse settings
+
+All are optional. Change a value, then restart the container.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `LIVIMUSE_DJ_ROLE` | *(off)* | Role name(s) with full control, e.g. `DJ` or `DJ,Music Mod`. Unset means everyone can do everything |
+| `LIVIMUSE_OPEN_COMMANDS` | `play` | Commands everyone may use when the DJ role is on |
+| `LIVIMUSE_VOTE_SKIP_PERCENT` | `50` | Non-DJ skips need votes from **more than** this % of listeners (`0` = any single vote, `100` = everyone) |
+| `LIVIMUSE_CARD_REFRESH_SECONDS` | `5` | How often the card's time updates (minimum `2`) |
+| `LIVIMUSE_REPOST_AFTER_MESSAGES` | `3` | Messages below the card before it moves to the bottom (`0` = never) |
+| `LIVIMUSE_REPOST_QUIET_SECONDS` | `5` | How long chat must be quiet before reposting |
+| `LIVIMUSE_UP_NEXT_COUNT` | `3` | Songs listed under "Up next" (`0` hides it, max `10`) |
+| `LIVIMUSE_VOICE_STATUS` | `true` | Show the song under the voice channel name |
+| `LIVIMUSE_PRELOAD_NEXT` | `true` | Prepare the next song while the current one plays |
+| `LIVIMUSE_TIDY_SECONDS` | `60` | Delete plain-text confirmations after this long (`0` = keep them) |
+| `LIVIMUSE_YT_DLP_UPDATE_HOURS` | `24` | Re-check yt-dlp while running (`0` = only at startup, max `168`). Needs `YT_DLP_AUTO_UPDATE=true` |
+
+A value that isn't a number falls back to the default, and out-of-range values are clamped. The bot never crashes on a bad setting.
+
+### Settings inherited from Muse
+
+| Variable | What it does |
+|---|---|
+| `CACHE_LIMIT` | Maximum cache size, e.g. `5GB` (default `2GB`). A typical song is 3–5 MB |
+| `YT_DLP_AUTO_UPDATE` | Update yt-dlp at startup. **Recommended: `true`** |
+| `YT_DLP_COOKIES_PATH` | A YouTube cookie file for age-restricted videos. Mount it outside `/data`, and treat it like a password |
+| `ENABLE_SPONSORBLOCK` / `SPONSORBLOCK_TIMEOUT` | Skip non-music intros and outros using [SponsorBlock](https://sponsor.ajay.app/) |
+| `BOT_STATUS` / `BOT_ACTIVITY_TYPE` / `BOT_ACTIVITY` / `BOT_ACTIVITY_URL` | The bot's presence, e.g. `online` / `PLAYING` / `music` |
+| `REGISTER_COMMANDS_ON_BOT` | Register commands globally instead of per server. Useful for 10+ servers; updates can take up to an hour |
+| `ENV_FILE` | Read variables from a file instead (default `/config`) |
+
+Per-server options such as default volume, playlist limit, and ducking when people speak are set in Discord with `/config` (Manage Server only).
+
+## Customizing replies
+
+Every reply the bot sends is in [`src/custom/messages.ts`](src/custom/messages.ts): confirmations, error prefix, button labels, card text, vote-skip text, and voice status. Edit the text on the right-hand side and push. The image rebuilds automatically.
+
+```ts
+disconnected: 'disconnected',
+errorPrefix: '🚫 ',
+byUser: (action: string, user: string) => `${action} by ${user}`,
+```
+
+---
+
+## How the fork is organized
+
+All LiviMuse code lives in [`src/custom/`](src/custom/). Muse's own files are touched as little as possible, which keeps merges with new Muse releases clean.
+
+| File | Purpose |
+|---|---|
+| `src/custom/messages.ts` | All reply wording |
+| `src/custom/controls.ts` | Player card, buttons, live refresh, reposting |
+| `src/custom/commands/controls.ts` | Button handling, the pop-ups, and `/controls` |
+| `src/custom/permissions.ts` | DJ role checks on every command and button |
+| `src/custom/vote-skip.ts` | Vote counting |
+| `src/custom/voice-status.ts` | Voice channel status |
+| `src/custom/preload.ts` | Preparing the next song |
+| `src/custom/tidy.ts` | Deleting old confirmations |
+| `src/custom/yt-dlp-updates.ts` | Daily yt-dlp updates |
+| `src/custom/settings.ts` | All `LIVIMUSE_*` settings |
+| `src/custom/commands/` | Add your own slash commands here. Copy `example.ts` and list it in `index.ts` |
+
+Where Muse's files are changed, it's by small hooks, each marked with a `LiviMuse` comment:
+
+- one-line reply swaps
+- card hooks where the player card is sent
+- a registration block in `src/inversify.config.ts`
+- a cache helper and preload method in `src/services/player.ts`
+
+### Build and sync pipelines
+
+- **[`livimuse-build.yml`](.github/workflows/livimuse-build.yml)** runs on every push to `master`: type check, lint, and Muse's test suite, then it publishes the image. Muse's tests run against Muse's original wording and without the buttons (see `vitest.config.ts`), so changing replies can never fail the build.
+- **[`livimuse-sync.yml`](.github/workflows/livimuse-sync.yml)** runs daily and merges the newest Muse release. It pushes with a `SYNC_TOKEN` repository secret: a fine-grained token with Contents and Workflows write access to this repository. On a conflict it stops, pushes nothing, and fails so GitHub emails you. The running bot is unaffected.
+
+Resolving a sync conflict locally:
 
 ```bash
-npm test
+git fetch upstream --tags
+git merge vX.Y.Z
 ```
 
-## ⚙️ Additional configuration (advanced)
+Fix the files it lists (usually by keeping both sides), commit, and push. This README is always kept as-is during merges (see `.gitattributes`).
 
-### Cache
+### Running without Docker
 
-By default, Muse limits the total cache size to around 2 GB. If you want to change this, set the environment variable `CACHE_LIMIT`. For example, `CACHE_LIMIT=512MB` or `CACHE_LIMIT=10GB`.
+You need Node.js 22.12+, ffmpeg, and `yt-dlp[default]` on your `PATH`. Copy `.env.example` to `.env`, fill it in, then run `yarn install` and `yarn start`.
 
-### yt-dlp
+### Troubleshooting
 
-Muse now uses `yt-dlp` to resolve playable YouTube media URLs. In Docker, the image already includes it. For direct Node.js installs, either put `yt-dlp` on your `PATH` or set `YT_DLP_PATH` in your environment file.
+- **The card has no buttons or stopped updating.** Check the log for `[livimuse card]` lines. They say which card is live and why one was replaced or failed.
+- **The voice channel status doesn't appear.** Give the bot Set Voice Channel Status in that channel. There's a `[livimuse voice-status]` warning in the log.
+- **YouTube songs fail.** Restart the container to pull the newest yt-dlp immediately. For age-restricted videos, set up `YT_DLP_COOKIES_PATH`.
+- **The bot can't join voice.** Muse's log reports the voice state. `OpeningWs` points to outbound TCP to Discord's voice port. `UdpHandshaking` points to outbound UDP and return traffic through your firewall or NAT.
 
-Muse logs `YT_DLP_VERSION` on startup. Set `YT_DLP_AUTO_UPDATE=true` to make Muse try to update the configured `yt-dlp` installation before connecting to Discord. This works best with the Docker image's bundled virtualenv, or when `YT_DLP_PATH` points at a virtualenv or standalone `yt-dlp` executable that Muse can update.
+## License
 
-Age-restricted videos require cookies from an age-verified YouTube account. Export a YouTube-only Netscape cookie file using the [official yt-dlp guidance](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies), mount it outside `/data`, and set `YT_DLP_COOKIES_PATH` to its container path. Treat this file like a password. Muse copies it to a private per-extraction temporary file because yt-dlp updates the cookie jar while it runs, so the mounted source may remain read-only and concurrent guilds do not share a writable cookie file.
-
-Current YouTube extraction also requires a supported JavaScript runtime. The Docker image includes the matching `yt-dlp-ejs` package and uses its bundled Node.js runtime. Direct installs should install `yt-dlp[default]` and provide Node.js 22 or newer.
-
-The `ghcr.io/museofficial/muse:yt-dlp-latest` image is rebuilt on a schedule from the latest Muse release with the newest `yt-dlp` published to PyPI. Versioned refresh tags are also published as `:<muse-version>-yt-dlp-<yt-dlp-version>`.
-
-### SponsorBlock
-
-Muse can skip non-music segments at the beginning or end of a Youtube music video (Using [SponsorBlock](https://sponsor.ajay.app/)). It is disabled by default. If you want to enable it, set the environment variable `ENABLE_SPONSORBLOCK=true` or uncomment it in your .env.
-Being a community project, the server may be down or overloaded. When it happen, Muse will skip requests to SponsorBlock for a few minutes. You can change the skip duration by setting the value of `SPONSORBLOCK_TIMEOUT`.
-
-### Custom Bot Status
-
-In the default state, Muse has the status "Online" and the text "Listening to Music". You can change the status through environment variables:
-
-- `BOT_STATUS`:
-  - `online` (Online)
-  - `idle` (Away)
-  - `dnd` (Do not Disturb)
-
-- `BOT_ACTIVITY_TYPE`:
-  - `PLAYING` (Playing XYZ)
-  - `LISTENING` (Listening to XYZ)
-  - `WATCHING` (Watching XYZ)
-  - `STREAMING` (Streaming XYZ)
-
-- `BOT_ACTIVITY`: the text that follows the activity type
-
-- `BOT_ACTIVITY_URL` If you use `STREAMING` you MUST set this variable, otherwise it will not work! Here you write a regular YouTube or Twitch Stream URL.
-
-#### Examples
-
-**Muse is watching a movie and is DND**:
-- `BOT_STATUS=dnd`
-- `BOT_ACTIVITY_TYPE=WATCHING`
-- `BOT_ACTIVITY=a movie`
-
-**Muse is streaming Monstercat**:
-- `BOT_STATUS=online`
-- `BOT_ACTIVITY_TYPE=STREAMING`
-- `BOT_ACTIVITY_URL=https://www.twitch.tv/monstercat`
-- `BOT_ACTIVITY=Monstercat`
-
-### Bot-wide commands
-
-If you have Muse running in a lot of guilds (10+) you may want to switch to registering commands bot-wide rather than for each guild. (The downside to this is that command updates can take up to an hour to propagate.) To do this, set the environment variable `REGISTER_COMMANDS_ON_BOT` to `true`.
-
-### Automatically turn down volume when people speak
-
-You can configure the bot to automatically turn down the volume when people are speaking in the channel using the following commands:
-
-- `/config set-reduce-vol-when-voice true` - Enable automatic volume reduction
-- `/config set-reduce-vol-when-voice false` - Disable automatic volume reduction
-- `/config set-reduce-vol-when-voice-target <volume>` - Set the target volume percentage when people speak (0-100, default is 20)
-
-### Troubleshooting voice connection timeouts
-
-Muse retries a stalled initial voice handshake up to three times, waiting up to 20 seconds per attempt. Requests are added to the queue only after the connection is ready; a failed join leaves the existing queue intact. A later successful request can still resume songs that were already queued intentionally.
-
-The failure message includes the last voice and network states. `OpeningWs` means the secure connection to the voice server did not open; check outbound TCP access to the **port supplied by Discord**, which is not necessarily 443. `UdpHandshaking` means the voice server was reached but UDP discovery did not finish; check outbound UDP and return traffic through the firewall/NAT. Discord describes both steps in its [voice connection documentation](https://docs.discord.com/developers/topics/voice-connections).
-
-Keep voice tokens, session IDs, encryption keys, and full protocol/debug payloads out of logs and bug reports. The network-state diagnostic reports only a state name.
+MIT, same as Muse. Original work © 2020 Max Isom and Muse contributors; see [LICENSE](LICENSE).

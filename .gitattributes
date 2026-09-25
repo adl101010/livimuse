@@ -1,0 +1,4 @@
+# LiviMuse: our README replaces Muse's entirely, so upstream merges always keep
+# ours. The "ours" merge driver is enabled in .github/workflows/livimuse-sync.yml;
+# for local merges, run once: git config merge.ours.driver true
+README.md merge=ours
