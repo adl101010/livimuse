@@ -39,22 +39,18 @@ export const messages = {
   djOnly: (role: string) => `you need the ${role} role to do that`,
   djOnlyPlayOptions: (role: string) => `you need the ${role} role to use skip or immediate with /play`,
 
-  // Who pressed a card button: posted for skip/back/shuffle/stop, and shown on
+  // Who pressed a card button: posted for skip/back/stop, and shown on
   // the card as "Last". `user` is a mention like <@123>; it never pings.
   byUser: (action: string, user: string) => `${action} by ${user}`,
   lastActionTitle: 'Last',
   actionSkipped: '⏭️ skipped',
   actionWentBack: '⏮️ went back',
   actionStopped: '⏹️ stopped',
-  actionShuffled: '🔀 shuffled',
   actionPaused: '⏸️ paused',
   actionResumed: '▶️ resumed',
   actionRewound: (seconds: number) => `⏪ rewound ${seconds}s`,
   actionForwarded: (seconds: number) => `⏩ forward ${seconds}s`,
   actionJumped: (time: string) => `🕒 jumped to ${time}`,
-  actionLoopSong: '🔂 looping this song',
-  actionLoopQueue: '🔁 looping the queue',
-  actionLoopOff: '➡️ loop off',
 
   // Vote skip (people without the DJ role)
   actionVoted: (count: number, needed: number) => `🗳️ voted to skip (${count}/${needed})`,

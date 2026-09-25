@@ -38,8 +38,6 @@ export const controlIds = {
   forward: `${CONTROL_PREFIX}forward`,
   skip: `${CONTROL_PREFIX}skip`,
   jump: `${CONTROL_PREFIX}jump`,
-  shuffle: `${CONTROL_PREFIX}shuffle`,
-  loop: `${CONTROL_PREFIX}loop`,
   stop: `${CONTROL_PREFIX}stop`,
 };
 
@@ -71,8 +69,6 @@ export const buildControlRows = (player: Player): Array<ActionRowData<Interactio
   row(
     button(controlIds.add, '➕', messages.addSongButton),
     button(controlIds.jump, '🕒', messages.jumpToButton),
-    button(controlIds.shuffle, '🔀'),
-    button(controlIds.loop, '🔁'),
     button(controlIds.stop, '⏹️'),
   ),
 ];

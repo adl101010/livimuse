@@ -164,7 +164,7 @@ export default class implements Command {
     return song;
   }
 
-  // Pause/resume, ±15s, loop and shuffle: edit the card the button is on.
+  // Pause/resume and ±15s: edit the card the button is on.
   private async updateInPlace(interaction: ButtonInteraction, player: Player) {
     this.validateInPlace(interaction.customId, player);
 
@@ -198,18 +198,6 @@ export default class implements Command {
         }
 
         break;
-      case controlIds.loop:
-        if (player.status === STATUS.IDLE) {
-          throw new Error('no song to loop!');
-        }
-
-        break;
-      case controlIds.shuffle:
-        if (player.isQueueEmpty()) {
-          throw new Error('not enough songs to shuffle');
-        }
-
-        break;
       default:
         throw new Error('unknown button');
     }
@@ -230,16 +218,6 @@ export default class implements Command {
         await player.seek(Math.min(player.getPosition() + SEEK_STEP_SECONDS, this.assertSeekable(player).length - 1));
         setLastAction(guildId!, messages.actionForwarded(SEEK_STEP_SECONDS), user.id);
         break;
-      case controlIds.loop:
-        setLastAction(guildId!, this.cycleLoop(player), user.id);
-        break;
-      case controlIds.shuffle:
-        player.shuffle();
-        await interaction.followUp({
-          content: setLastAction(guildId!, messages.actionShuffled, user.id),
-          allowedMentions: {parse: []},
-        });
-        break;
       default:
         break;
     }
@@ -254,24 +232,6 @@ export default class implements Command {
     await this.ensureConnected(interaction, player);
     await player.play();
     return messages.actionResumed;
-  }
-
-  // Cycle: off -> this song -> whole queue (if there is one) -> off
-  private cycleLoop(player: Player) {
-    if (player.loopCurrentSong) {
-      player.loopCurrentSong = false;
-      player.loopCurrentQueue = player.queueSize() >= 1;
-    } else if (player.loopCurrentQueue) {
-      player.loopCurrentQueue = false;
-    } else {
-      player.loopCurrentSong = true;
-    }
-
-    if (player.loopCurrentSong) {
-      return messages.actionLoopSong;
-    }
-
-    return player.loopCurrentQueue ? messages.actionLoopQueue : messages.actionLoopOff;
   }
 
   // Like /resume: rejoin the presser's channel if the bot left voice.
