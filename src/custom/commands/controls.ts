@@ -35,6 +35,7 @@ import {messages} from '../messages.js';
 import {assertDj, isDj} from '../permissions.js';
 import {openCommands} from '../settings.js';
 import {clearVoiceStatus, startVoiceStatus} from '../voice-status.js';
+import {startPreloading} from '../preload.js';
 import {castSkipVote, clearSkipVotes} from '../vote-skip.js';
 import AddQueryToQueue from '../../services/add-query-to-queue.js';
 import {startYtDlpUpdates} from '../yt-dlp-updates.js';
@@ -84,6 +85,7 @@ export default class implements Command {
     // This command is created once at startup, so it also starts our background jobs.
     startYtDlpUpdates();
     startVoiceStatus(client, guildId => playerManager.get(guildId));
+    startPreloading(client, guildId => playerManager.get(guildId));
   }
 
   public async execute(interaction: ChatInputCommandInteraction): Promise<void> {

@@ -56,11 +56,15 @@ export const voteSkipPercent = () => envNumber('LIVIMUSE_VOTE_SKIP_PERCENT', 50,
 // Show the current song under the voice channel's name. "false" turns it off.
 export const voiceStatusEnabled = () => process.env.LIVIMUSE_VOICE_STATUS?.trim().toLowerCase() !== 'false';
 
+// Prepare the next song in the background while the current one plays. "false" turns it off.
+export const preloadNextEnabled = () => process.env.LIVIMUSE_PRELOAD_NEXT?.trim().toLowerCase() !== 'false';
+
 export const describeSettings = () => [
   `card refresh ${cardRefreshMs() / 1000}s`,
   repostAfterMessages() === 0 ? 'repost off' : `repost after ${repostAfterMessages()} messages + ${repostQuietMs() / 1000}s quiet`,
   `up next ${upNextCount()}`,
   `vote skip >${voteSkipPercent()}%`,
   voiceStatusEnabled() ? 'voice status on' : 'voice status off',
+  preloadNextEnabled() ? 'preload next on' : 'preload next off',
   djRoleNames().length === 0 ? 'DJ role off' : `DJ role ${envList('LIVIMUSE_DJ_ROLE').join('/')}, open commands /${openCommands().join(' /')}`,
 ].join(', ');
