@@ -50,9 +50,17 @@ export const djRoleLabel = () => envList('LIVIMUSE_DJ_ROLE')[0] ?? 'DJ';
 // Commands anyone can use when LIVIMUSE_DJ_ROLE is set, e.g. "play,queue,now-playing".
 export const openCommands = () => envList('LIVIMUSE_OPEN_COMMANDS', 'play').map(name => name.replace(/^\//, '').toLowerCase());
 
+// Non-DJ skip votes needed: more than this percent of listeners. 0 = any one vote, 100 = everyone.
+export const voteSkipPercent = () => envNumber('LIVIMUSE_VOTE_SKIP_PERCENT', 50, 0, 100);
+
+// Show the current song under the voice channel's name. "false" turns it off.
+export const voiceStatusEnabled = () => process.env.LIVIMUSE_VOICE_STATUS?.trim().toLowerCase() !== 'false';
+
 export const describeSettings = () => [
   `card refresh ${cardRefreshMs() / 1000}s`,
   repostAfterMessages() === 0 ? 'repost off' : `repost after ${repostAfterMessages()} messages + ${repostQuietMs() / 1000}s quiet`,
   `up next ${upNextCount()}`,
+  `vote skip >${voteSkipPercent()}%`,
+  voiceStatusEnabled() ? 'voice status on' : 'voice status off',
   djRoleNames().length === 0 ? 'DJ role off' : `DJ role ${envList('LIVIMUSE_DJ_ROLE').join('/')}, open commands /${openCommands().join(' /')}`,
 ].join(', ');

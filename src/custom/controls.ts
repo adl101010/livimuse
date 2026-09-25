@@ -17,6 +17,7 @@ import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
 import {truncate} from '../utils/string.js';
 import {prettyTime} from '../utils/time.js';
 import {messages} from './messages.js';
+import {skipVoteProgress} from './vote-skip.js';
 import {cardRefreshMs, describeSettings, repostAfterMessages, repostQuietMs, upNextCount} from './settings.js';
 
 // Card lifecycle events go to the container log to make problems traceable.
@@ -30,6 +31,7 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 export const CONTROL_PREFIX = 'livimuse:';
 
 export const controlIds = {
+  add: `${CONTROL_PREFIX}add`,
   back: `${CONTROL_PREFIX}back`,
   rewind: `${CONTROL_PREFIX}rewind`,
   playPause: `${CONTROL_PREFIX}play-pause`,
@@ -64,9 +66,10 @@ export const buildControlRows = (player: Player): Array<ActionRowData<Interactio
     button(controlIds.rewind, '⏪', `${SEEK_STEP_SECONDS}s`),
     button(controlIds.playPause, player.status === STATUS.PLAYING ? '⏸️' : '▶️'),
     button(controlIds.forward, '⏩', `${SEEK_STEP_SECONDS}s`),
-    button(controlIds.skip, '⏭️'),
+    button(controlIds.skip, '⏭️', skipVoteProgress(player)),
   ),
   row(
+    button(controlIds.add, '➕', messages.addSongButton),
     button(controlIds.jump, '🕒', messages.jumpToButton),
     button(controlIds.shuffle, '🔀'),
     button(controlIds.loop, '🔁'),
@@ -96,6 +99,12 @@ const lastActions = new Map<string, string>();
 // Shown on the card as "Last: ⏸️ paused by @someone" until the next button press.
 export const setLastAction = (guildId: string, action: string, userId: string): string => {
   const text = messages.byUser(action, `<@${userId}>`);
+  lastActions.set(guildId, text);
+  return text;
+};
+
+// For lines that already say who or why, e.g. "⏭️ skipped by vote (2/2)".
+export const setLastActionText = (guildId: string, text: string): string => {
   lastActions.set(guildId, text);
   return text;
 };
@@ -146,6 +155,7 @@ const cardState = (player: Player) => [
   player.getVolume(),
   player.getQueue().slice(0, upNextCount() + 1).map(song => song.url).join(','),
   lastActions.get(player.guildId),
+  skipVoteProgress(player),
 ].join(':');
 
 const stopTimers = (card: LiveCard) => {

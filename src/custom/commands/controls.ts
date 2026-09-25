@@ -27,16 +27,24 @@ import {
   forgetCard,
   SEEK_STEP_SECONDS,
   setLastAction,
+  setLastActionText,
   trackCard,
   withCardLock,
 } from '../controls.js';
 import {messages} from '../messages.js';
-import {assertDj} from '../permissions.js';
+import {assertDj, isDj} from '../permissions.js';
+import {openCommands} from '../settings.js';
+import {clearVoiceStatus, startVoiceStatus} from '../voice-status.js';
+import {castSkipVote, clearSkipVotes} from '../vote-skip.js';
+import AddQueryToQueue from '../../services/add-query-to-queue.js';
 import {startYtDlpUpdates} from '../yt-dlp-updates.js';
 
 const JUMP_MODAL_ID = 'livimuse:jump-modal';
 const JUMP_FIELD_ID = 'time';
 const JUMP_TIMEOUT_MS = 2 * 60 * 1000;
+const ADD_MODAL_ID = 'livimuse:add-modal';
+const ADD_FIELD_ID = 'query';
+const ADD_TIMEOUT_MS = 5 * 60 * 1000;
 
 const cardPayload = (player: Player) => (player.getCurrent() ? buildCard(player) : {embeds: [], components: []});
 
@@ -63,12 +71,19 @@ export default class implements Command {
   public readonly handledButtonIds = Object.values(controlIds);
 
   private readonly playerManager: PlayerManager;
+  private readonly addQueryToQueue: AddQueryToQueue;
 
-  constructor(@inject(TYPES.Managers.Player) playerManager: PlayerManager, @inject(TYPES.Client) client: Client) {
+  constructor(
+    @inject(TYPES.Managers.Player) playerManager: PlayerManager,
+    @inject(TYPES.Client) client: Client,
+    @inject(TYPES.Services.AddQueryToQueue) addQueryToQueue: AddQueryToQueue,
+  ) {
     this.playerManager = playerManager;
+    this.addQueryToQueue = addQueryToQueue;
     enableLiveCards(guildId => playerManager.get(guildId), client);
     // This command is created once at startup, so it also starts our background jobs.
     startYtDlpUpdates();
+    startVoiceStatus(client, guildId => playerManager.get(guildId));
   }
 
   public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -83,14 +98,32 @@ export default class implements Command {
 
   // Errors thrown before the press is acknowledged are shown privately by bot.ts.
   public async handleButtonInteraction(interaction: ButtonInteraction): Promise<void> {
-    assertDj(interaction);
+    const dj = isDj(interaction);
+    const {customId} = interaction;
+
+    // Without the DJ role you can still vote to skip, and add songs if /play is open.
+    const allowed = dj
+      || customId === controlIds.skip
+      || (customId === controlIds.add && openCommands().includes('play'));
+
+    if (!allowed) {
+      assertDj(interaction);
+    }
+
     const player = this.playerManager.get(interaction.guildId!);
     this.assertInPlayerChannel(interaction, player);
 
-    switch (interaction.customId) {
+    switch (customId) {
       case controlIds.skip:
+        await (dj || player.getCurrent()?.requestedBy === interaction.user.id
+          ? this.changeSong(interaction, player)
+          : this.voteSkip(interaction, player));
+        break;
       case controlIds.back:
         await this.changeSong(interaction, player);
+        break;
+      case controlIds.add:
+        await this.addSong(interaction);
         break;
       case controlIds.stop:
         await this.stop(interaction, player);
@@ -255,7 +288,7 @@ export default class implements Command {
   }
 
   // Skip and back post a new card, which strips the buttons off this one.
-  private async changeSong(interaction: ButtonInteraction, player: Player) {
+  private async changeSong(interaction: ButtonInteraction, player: Player, announcement?: string) {
     const isSkip = interaction.customId === controlIds.skip;
 
     if (isSkip && !player.canGoForward(1)) {
@@ -284,7 +317,10 @@ export default class implements Command {
         throw error;
       }
 
-      const action = setLastAction(interaction.guildId!, isSkip ? messages.actionSkipped : messages.actionWentBack, interaction.user.id);
+      clearSkipVotes(interaction.guildId!);
+      const action = announcement
+        ? setLastActionText(interaction.guildId!, announcement)
+        : setLastAction(interaction.guildId!, isSkip ? messages.actionSkipped : messages.actionWentBack, interaction.user.id);
 
       trackCard(await interaction.followUp({
         content: action,
@@ -301,6 +337,7 @@ export default class implements Command {
       throw new Error('not connected');
     }
 
+    await clearVoiceStatus(interaction.guildId!);
     player.stop();
     forgetCard(interaction.guildId!);
     clearLastAction(interaction.guildId!);
@@ -309,6 +346,81 @@ export default class implements Command {
       content: messages.byUser(messages.actionStopped, `<@${interaction.user.id}>`),
       allowedMentions: {parse: []},
     });
+  }
+
+  // Non-DJs: count the vote, and skip once enough listeners agree.
+  private async voteSkip(interaction: ButtonInteraction, player: Player) {
+    if (!player.canGoForward(1)) {
+      throw new Error('no song to skip to');
+    }
+
+    const vote = castSkipVote(interaction.guild!, player, interaction.user.id);
+
+    if (vote.passed) {
+      await this.changeSong(interaction, player, messages.skippedByVote(vote.count, vote.needed));
+      return;
+    }
+
+    if (vote.alreadyVoted) {
+      throw new Error(messages.alreadyVoted);
+    }
+
+    await interaction.deferUpdate();
+
+    try {
+      await withCardLock(interaction.guildId!, async () => {
+        setLastAction(interaction.guildId!, messages.actionVoted(vote.count, vote.needed), interaction.user.id);
+        await interaction.editReply(cardPayload(player));
+      });
+    } catch (error: unknown) {
+      await interaction.followUp({content: errorMsg(error as Error), ephemeral: true}).catch(() => undefined);
+    }
+  }
+
+  // ➕ Add song: a pop-up, then exactly what /play does with that text.
+  private async addSong(interaction: ButtonInteraction) {
+    await interaction.showModal({
+      customId: ADD_MODAL_ID,
+      title: messages.addSongTitle,
+      components: [{
+        type: ComponentType.ActionRow,
+        components: [{
+          type: ComponentType.TextInput,
+          customId: ADD_FIELD_ID,
+          label: messages.addSongField,
+          style: TextInputStyle.Short,
+          required: true,
+          maxLength: 300,
+        }],
+      }],
+    });
+
+    const submitted = await interaction.awaitModalSubmit({
+      time: ADD_TIMEOUT_MS,
+      filter: modal => modal.customId === ADD_MODAL_ID && modal.user.id === interaction.user.id,
+    }).catch(() => null);
+
+    if (!submitted) {
+      return;
+    }
+
+    try {
+      // AddQueryToQueue only uses guild, member, channel, deferReply and editReply,
+      // which a pop-up submission has too.
+      await this.addQueryToQueue.addToQueue({
+        interaction: submitted as unknown as ChatInputCommandInteraction,
+        query: submitted.fields.getTextInputValue(ADD_FIELD_ID).trim(),
+        addToFrontOfQueue: false,
+        shuffleAdditions: false,
+        shouldSplitChapters: false,
+        skipCurrentTrack: false,
+      });
+    } catch (error: unknown) {
+      const content = errorMsg(error as Error);
+      await (submitted.deferred || submitted.replied
+        ? submitted.editReply(content)
+        : submitted.reply({content, ephemeral: true})).catch(() => undefined);
+    }
   }
 
   private async jump(interaction: ButtonInteraction, player: Player) {

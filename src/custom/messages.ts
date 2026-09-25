@@ -55,7 +55,21 @@ export const messages = {
   actionLoopSong: '🔂 looping this song',
   actionLoopQueue: '🔁 looping the queue',
   actionLoopOff: '➡️ loop off',
+
+  // Vote skip (people without the DJ role)
+  actionVoted: (count: number, needed: number) => `🗳️ voted to skip (${count}/${needed})`,
+  skippedByVote: (count: number, needed: number) => `⏭️ skipped by vote (${count}/${needed})`,
+  alreadyVoted: 'you already voted to skip this song',
+
+  // Voice channel status (under the channel name in the sidebar)
+  voiceStatusPlaying: (title: string) => `🎵 ${title}`,
+  voiceStatusPaused: (title: string) => `⏸️ ${title}`,
+
+  // Button labels and pop-ups on the card
   jumpToButton: 'Jump to',
+  addSongButton: 'Add song',
+  addSongTitle: 'Add a song',
+  addSongField: 'Song name or link',
   jumpToTitle: 'Jump to',
   jumpToField: 'Time (like 2:30)',
   controlsNotInVoice: 'join the voice channel to use these',
