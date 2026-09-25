@@ -59,6 +59,12 @@ export const voiceStatusEnabled = () => process.env.LIVIMUSE_VOICE_STATUS?.trim(
 // Prepare the next song in the background while the current one plays. "false" turns it off.
 export const preloadNextEnabled = () => process.env.LIVIMUSE_PRELOAD_NEXT?.trim().toLowerCase() !== 'false';
 
+// Delete the bot's plain-text confirmations after this many seconds. 0 = keep them.
+export const tidySeconds = () => {
+  const seconds = envNumber('LIVIMUSE_TIDY_SECONDS', 60, 0, 3600);
+  return seconds > 0 && seconds < 5 ? 5 : seconds;
+};
+
 export const describeSettings = () => [
   `card refresh ${cardRefreshMs() / 1000}s`,
   repostAfterMessages() === 0 ? 'repost off' : `repost after ${repostAfterMessages()} messages + ${repostQuietMs() / 1000}s quiet`,
@@ -66,5 +72,6 @@ export const describeSettings = () => [
   `vote skip >${voteSkipPercent()}%`,
   voiceStatusEnabled() ? 'voice status on' : 'voice status off',
   preloadNextEnabled() ? 'preload next on' : 'preload next off',
+  tidySeconds() === 0 ? 'tidy off' : `tidy after ${tidySeconds()}s`,
   djRoleNames().length === 0 ? 'DJ role off' : `DJ role ${envList('LIVIMUSE_DJ_ROLE').join('/')}, open commands /${openCommands().join(' /')}`,
 ].join(', ');

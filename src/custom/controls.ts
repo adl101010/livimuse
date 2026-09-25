@@ -166,6 +166,8 @@ const stopTimers = (card: LiveCard) => {
   }
 };
 
+export const isLiveCard = (messageId: string): boolean => [...liveCards.values()].some(card => card.message.id === messageId);
+
 export const forgetCard = (guildId: string): void => {
   const card = liveCards.get(guildId);
 

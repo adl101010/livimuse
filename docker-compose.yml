@@ -26,3 +26,4 @@ services:
       # - LIVIMUSE_VOTE_SKIP_PERCENT=50       # non-DJ skip needs votes from more than this % of listeners
       # - LIVIMUSE_VOICE_STATUS=true          # show the song under the voice channel name
       # - LIVIMUSE_PRELOAD_NEXT=true          # prepare the next song while the current one plays
+      # - LIVIMUSE_TIDY_SECONDS=60            # delete plain-text confirmations after this long (0 = keep)
