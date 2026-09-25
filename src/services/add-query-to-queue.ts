@@ -122,6 +122,7 @@ export default class AddQueryToQueue {
     } else if (player.status === STATUS.IDLE) {
       // Player is idle, start playback instead
       await player.play();
+      shouldShowPlayingEmbed = true; // LiviMuse: post the card here too, not only after joining voice
     }
 
     if (!player.getCurrent()) {
