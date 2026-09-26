@@ -26,6 +26,7 @@ import {
   enableLiveCards,
   forgetCard,
   SEEK_STEP_SECONDS,
+  VOLUME_STEP,
   setLastAction,
   setLastActionText,
   trackCard,
@@ -33,20 +34,15 @@ import {
 } from '../controls.js';
 import {messages} from '../messages.js';
 import {assertDj, isDj} from '../permissions.js';
-import {openCommands} from '../settings.js';
 import {clearVoiceStatus, startVoiceStatus} from '../voice-status.js';
 import {startPreloading} from '../preload.js';
 import {startTidying} from '../tidy.js';
 import {castSkipVote, clearSkipVotes} from '../vote-skip.js';
-import AddQueryToQueue from '../../services/add-query-to-queue.js';
 import {startYtDlpUpdates} from '../yt-dlp-updates.js';
 
 const JUMP_MODAL_ID = 'livimuse:jump-modal';
 const JUMP_FIELD_ID = 'time';
 const JUMP_TIMEOUT_MS = 2 * 60 * 1000;
-const ADD_MODAL_ID = 'livimuse:add-modal';
-const ADD_FIELD_ID = 'query';
-const ADD_TIMEOUT_MS = 5 * 60 * 1000;
 
 const cardPayload = (player: Player) => (player.getCurrent() ? buildCard(player) : {embeds: [], components: []});
 
@@ -73,15 +69,12 @@ export default class implements Command {
   public readonly handledButtonIds = Object.values(controlIds);
 
   private readonly playerManager: PlayerManager;
-  private readonly addQueryToQueue: AddQueryToQueue;
 
   constructor(
     @inject(TYPES.Managers.Player) playerManager: PlayerManager,
     @inject(TYPES.Client) client: Client,
-    @inject(TYPES.Services.AddQueryToQueue) addQueryToQueue: AddQueryToQueue,
   ) {
     this.playerManager = playerManager;
-    this.addQueryToQueue = addQueryToQueue;
     enableLiveCards(guildId => playerManager.get(guildId), client);
     // This command is created once at startup, so it also starts our background jobs.
     startYtDlpUpdates();
@@ -105,12 +98,8 @@ export default class implements Command {
     const dj = isDj(interaction);
     const {customId} = interaction;
 
-    // Without the DJ role you can still vote to skip, and add songs if /play is open.
-    const allowed = dj
-      || customId === controlIds.skip
-      || (customId === controlIds.add && openCommands().includes('play'));
-
-    if (!allowed) {
+    // Without the DJ role you can still vote to skip.
+    if (!dj && customId !== controlIds.skip) {
       assertDj(interaction);
     }
 
@@ -125,9 +114,6 @@ export default class implements Command {
         break;
       case controlIds.back:
         await this.changeSong(interaction, player);
-        break;
-      case controlIds.add:
-        await this.addSong(interaction);
         break;
       case controlIds.stop:
         await this.stop(interaction, player);
@@ -168,7 +154,7 @@ export default class implements Command {
     return song;
   }
 
-  // Pause/resume and ±15s: edit the card the button is on.
+  // Pause/resume, ±15s, and volume: edit the card the button is on.
   private async updateInPlace(interaction: ButtonInteraction, player: Player) {
     this.validateInPlace(interaction.customId, player);
 
@@ -202,6 +188,10 @@ export default class implements Command {
         }
 
         break;
+      case controlIds.volumeDown:
+      case controlIds.volumeUp:
+        this.nextVolume(customId, player);
+        break;
       default:
         throw new Error('unknown button');
     }
@@ -222,9 +212,40 @@ export default class implements Command {
         await player.seek(Math.min(player.getPosition() + SEEK_STEP_SECONDS, this.assertSeekable(player).length - 1));
         setLastAction(guildId!, messages.actionForwarded(SEEK_STEP_SECONDS), user.id);
         break;
+      case controlIds.volumeDown:
+      case controlIds.volumeUp: {
+        const level = this.nextVolume(interaction.customId, player);
+        player.setVolume(level);
+        setLastAction(guildId!, interaction.customId === controlIds.volumeUp ? messages.actionVolumeUp(level) : messages.actionVolumeDown(level), user.id);
+        break;
+      }
+
       default:
         break;
     }
+  }
+
+  // Steps of 5 on a 5% grid: 12% goes to 15% or 10%, then 20% or 5%.
+  private nextVolume(customId: string, player: Player): number {
+    if (!player.getCurrent()) {
+      throw new Error('nothing is playing');
+    }
+
+    const current = player.getVolume();
+
+    if (customId === controlIds.volumeUp) {
+      if (current >= 100) {
+        throw new Error(messages.volumeAtMax);
+      }
+
+      return Math.min(100, (Math.floor(current / VOLUME_STEP) + 1) * VOLUME_STEP);
+    }
+
+    if (current <= 0) {
+      throw new Error(messages.volumeAtMin);
+    }
+
+    return Math.max(0, (Math.ceil(current / VOLUME_STEP) - 1) * VOLUME_STEP);
   }
 
   private async togglePlayback(interaction: ButtonInteraction, player: Player) {
@@ -338,52 +359,6 @@ export default class implements Command {
       });
     } catch (error: unknown) {
       await interaction.followUp({content: errorMsg(error as Error), ephemeral: true}).catch(() => undefined);
-    }
-  }
-
-  // ➕ Add song: a pop-up, then exactly what /play does with that text.
-  private async addSong(interaction: ButtonInteraction) {
-    await interaction.showModal({
-      customId: ADD_MODAL_ID,
-      title: messages.addSongTitle,
-      components: [{
-        type: ComponentType.ActionRow,
-        components: [{
-          type: ComponentType.TextInput,
-          customId: ADD_FIELD_ID,
-          label: messages.addSongField,
-          style: TextInputStyle.Short,
-          required: true,
-          maxLength: 300,
-        }],
-      }],
-    });
-
-    const submitted = await interaction.awaitModalSubmit({
-      time: ADD_TIMEOUT_MS,
-      filter: modal => modal.customId === ADD_MODAL_ID && modal.user.id === interaction.user.id,
-    }).catch(() => null);
-
-    if (!submitted) {
-      return;
-    }
-
-    try {
-      // AddQueryToQueue only uses guild, member, channel, deferReply and editReply,
-      // which a pop-up submission has too.
-      await this.addQueryToQueue.addToQueue({
-        interaction: submitted as unknown as ChatInputCommandInteraction,
-        query: submitted.fields.getTextInputValue(ADD_FIELD_ID).trim(),
-        addToFrontOfQueue: false,
-        shuffleAdditions: false,
-        shouldSplitChapters: false,
-        skipCurrentTrack: false,
-      });
-    } catch (error: unknown) {
-      const content = errorMsg(error as Error);
-      await (submitted.deferred || submitted.replied
-        ? submitted.editReply(content)
-        : submitted.reply({content, ephemeral: true})).catch(() => undefined);
     }
   }
 

@@ -51,6 +51,10 @@ export const messages = {
   actionRewound: (seconds: number) => `⏪ rewound ${seconds}s`,
   actionForwarded: (seconds: number) => `⏩ forward ${seconds}s`,
   actionJumped: (time: string) => `🕒 jumped to ${time}`,
+  actionVolumeDown: (level: number) => `🔉 volume ${level}%`,
+  actionVolumeUp: (level: number) => `🔊 volume ${level}%`,
+  volumeAtMin: 'volume is already at 0%',
+  volumeAtMax: 'volume is already at 100%',
 
   // Vote skip (people without the DJ role)
   actionVoted: (count: number, needed: number) => `🗳️ voted to skip (${count}/${needed})`,
@@ -63,9 +67,6 @@ export const messages = {
 
   // Button labels and pop-ups on the card
   jumpToButton: 'Jump to',
-  addSongButton: 'Add song',
-  addSongTitle: 'Add a song',
-  addSongField: 'Song name or link',
   jumpToTitle: 'Jump to',
   jumpToField: 'Time (like 2:30)',
   controlsNotInVoice: 'join the voice channel to use these',

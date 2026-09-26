@@ -15,7 +15,7 @@ Last
 ⏸️ paused by @tofuug
 
 [⏮️] [⏪ 15s] [⏸️] [⏩ 15s] [⏭️ 1/2]
-[➕ Add song] [🕒 Jump to] [⏹️]
+[🕒 Jump to] [🔉] [🔊] [⏹️]
 ```
 
 ---
@@ -47,7 +47,7 @@ What no fork can avoid: YouTube and Discord change their platforms over time. Mo
 
 ### A live player card
 
-- **Playback buttons.** Back, rewind 15s, pause/resume, forward 15s, skip, **➕ Add song**, **🕒 Jump to**, and stop.
+- **Playback buttons.** Back, rewind 15s, pause/resume, forward 15s, skip, **🕒 Jump to**, volume down and up in 5% steps (🔉 🔊), and stop.
 - **Live time.** The card refreshes every few seconds while a song plays.
 - **Up next.** The next few songs, with their length and who queued them.
 - **"Last" line.** Shows the most recent button press and who pressed it, for example "⏸️ paused by @someone".
@@ -55,14 +55,10 @@ What no fork can avoid: YouTube and Discord change their platforms over time. Mo
 - **One card with buttons at a time.** Older cards lose their buttons when a newer one is posted.
 - **`/controls`** posts a fresh card at any time.
 
-### Add songs without commands
-
-- **➕ Add song** opens a pop-up. Type a song name or paste a link, and it's queued exactly as if you'd used `/play`.
-
 ### DJ role and permissions
 
 - Set `LIVIMUSE_DJ_ROLE=DJ`. Members of that role, plus admins and anyone with Manage Server, can use every command and button.
-- **Everyone else can only queue songs**, with `/play` or ➕ Add song. They can't use `/play`'s skip or immediate options. You can open more commands with `LIVIMUSE_OPEN_COMMANDS`, for example `play,queue,now-playing`.
+- **Everyone else can only queue songs** with `/play`. They can't use `/play`'s skip or immediate options. You can open more commands with `LIVIMUSE_OPEN_COMMANDS`, for example `play,queue,now-playing`.
 - **The role is matched by name** in every server, ignoring case, so one setting covers all your servers.
 - Blocked actions get a private "🚫 you need the DJ role to do that". Nobody else sees it.
 

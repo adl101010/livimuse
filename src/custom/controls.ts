@@ -31,17 +31,19 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 export const CONTROL_PREFIX = 'livimuse:';
 
 export const controlIds = {
-  add: `${CONTROL_PREFIX}add`,
   back: `${CONTROL_PREFIX}back`,
   rewind: `${CONTROL_PREFIX}rewind`,
   playPause: `${CONTROL_PREFIX}play-pause`,
   forward: `${CONTROL_PREFIX}forward`,
   skip: `${CONTROL_PREFIX}skip`,
   jump: `${CONTROL_PREFIX}jump`,
+  volumeDown: `${CONTROL_PREFIX}volume-down`,
+  volumeUp: `${CONTROL_PREFIX}volume-up`,
   stop: `${CONTROL_PREFIX}stop`,
 };
 
 export const SEEK_STEP_SECONDS = 15;
+export const VOLUME_STEP = 5;
 
 // Plain data objects rather than ButtonBuilder: discord.js 14.11's builders are
 // typed against a different discord-api-types version and fail to compile.
@@ -67,8 +69,9 @@ export const buildControlRows = (player: Player): Array<ActionRowData<Interactio
     button(controlIds.skip, '⏭️', skipVoteProgress(player)),
   ),
   row(
-    button(controlIds.add, '➕', messages.addSongButton),
     button(controlIds.jump, '🕒', messages.jumpToButton),
+    button(controlIds.volumeDown, '🔉'),
+    button(controlIds.volumeUp, '🔊'),
     button(controlIds.stop, '⏹️'),
   ),
 ];
