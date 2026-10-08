@@ -4,9 +4,11 @@
 import {interfaces} from 'inversify';
 import Command from '../../commands/index.js';
 import Controls from './controls.js';
+import Ytdlp from './ytdlp.js';
 // To enable the template: import Example from './example.js';
 
 export const customCommands: Array<interfaces.Newable<Command>> = [
   Controls,
+  Ytdlp,
   // Example,
 ];

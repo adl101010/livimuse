@@ -200,7 +200,7 @@ const resolveExecutablePath = async () => {
   return findExecutableOnPath(executable);
 };
 
-const getPythonExecutableForYtDlp = async () => {
+export const getPythonExecutableForYtDlp = async () => {
   const executable = await resolveExecutablePath();
   if (!executable) {
     return null;

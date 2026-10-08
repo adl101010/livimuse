@@ -36,7 +36,7 @@ LiviMuse doesn't depend on the Muse repository to run or to build:
 
 - **The image is self-contained.** Everything the bot needs at runtime is inside `ghcr.io/adl101010/livimuse`. Nothing contacts the Muse project.
 - **Builds use public registries only.** Docker Hub (Node base image), Debian (ffmpeg), npm (pinned by `yarn.lock`), and PyPI (yt-dlp). The full source lives in this repository.
-- **yt-dlp stays current on its own.** It updates from PyPI at startup and then every 24 hours while running, so YouTube-side breakage is usually fixed without a rebuild.
+- **yt-dlp stays current on its own.** It updates from PyPI at startup and then every 24 hours while running, so YouTube-side breakage is usually fixed without a rebuild. Admins can also update it, or switch to nightly builds, from Discord with `/ytdlp`.
 - **Muse updates are optional.** A daily workflow merges new Muse releases when they appear. If Muse ever stops, the bot keeps working. The workflow would start failing, and you can disable it.
 
 What no fork can avoid: YouTube and Discord change their platforms over time. Most YouTube changes are handled by the yt-dlp updates. Occasionally a platform change needs a dependency upgrade in this repository and a rebuild.
@@ -76,6 +76,14 @@ What no fork can avoid: YouTube and Discord change their platforms over time. Mo
 ### Voice channel status
 
 - The current song appears under the voice channel's name in the sidebar: 🎵 while playing, ⏸️ while paused. It's cleared when playback stops.
+
+### yt-dlp control from Discord
+
+- **`/ytdlp status`** shows the installed version, the update channel, and the last update check.
+- **`/ytdlp update`** checks for a newer release right away. It applies from the next song, with no restart.
+- **`/ytdlp nightly`** switches to yt-dlp's nightly builds, where YouTube fixes usually land first. **`/ytdlp stable`** switches back to the latest stable release.
+- The channel choice is saved in the data folder, so it survives restarts and image updates. The daily check follows it.
+- Only server admins (Administrator or Manage Server) and the bot's owner can use it, because one yt-dlp serves every server the bot is in.
 
 ### Faster song changes
 
@@ -254,7 +262,7 @@ You need Node.js 22.12+, ffmpeg, and `yt-dlp[default]` on your `PATH`. Copy `.en
 
 - **The card has no buttons or stopped updating.** Check the log for `[livimuse card]` lines. They say which card is live and why one was replaced or failed.
 - **The voice channel status doesn't appear.** Give the bot Set Voice Channel Status in that channel. There's a `[livimuse voice-status]` warning in the log.
-- **YouTube songs fail.** Restart the container to pull the newest yt-dlp immediately. For age-restricted videos, set up `YT_DLP_COOKIES_PATH`.
+- **YouTube songs fail.** Run `/ytdlp update`, or restart the container, to pull the newest yt-dlp immediately. If the latest stable release is still broken, try `/ytdlp nightly`. For age-restricted videos, set up `YT_DLP_COOKIES_PATH`.
 - **The bot can't join voice.** Muse's log reports the voice state. `OpeningWs` points to outbound TCP to Discord's voice port. `UdpHandshaking` points to outbound UDP and return traffic through your firewall or NAT.
 
 ## License

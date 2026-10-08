@@ -61,6 +61,15 @@ export const messages = {
   skippedByVote: (count: number, needed: number) => `⏭️ skipped by vote (${count}/${needed})`,
   alreadyVoted: 'you already voted to skip this song',
 
+  // /ytdlp
+  ytdlpAdminsOnly: 'only server admins can manage yt-dlp',
+  ytdlpStatus: (version: string, channel: string) => `yt-dlp **${version}** · channel **${channel}**`,
+  ytdlpLastCheck: (when: string, result: string) => `last check ${when}: ${result}`,
+  ytdlpLastCheckFailed: (when: string, error: string) => `last check ${when} failed: ${error}`,
+  ytdlpNightlyReminder: 'you\'re on nightly builds. switch back with /ytdlp stable once stable works again',
+  ytdlpUpdated: (channel: string, before: string, after: string) => `✅ yt-dlp updated **${before} → ${after}** (${channel}). applies from the next song`,
+  ytdlpAlreadyCurrent: (channel: string, version: string) => `✅ already on the latest ${channel} yt-dlp (**${version}**)`,
+
   // Voice channel status (under the channel name in the sidebar)
   voiceStatusPlaying: (title: string) => `🎵 ${title}`,
   voiceStatusPaused: (title: string) => `⏸️ ${title}`,
