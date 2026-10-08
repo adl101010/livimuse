@@ -44,7 +44,8 @@ export default class implements Command {
 
   public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     const permissions = interaction.memberPermissions;
-    const isAdmin = Boolean(permissions?.has(PermissionFlagsBits.Administrator) || permissions?.has(PermissionFlagsBits.ManageGuild));
+    const isAdmin = permissions !== null
+      && (permissions.has(PermissionFlagsBits.Administrator) || permissions.has(PermissionFlagsBits.ManageGuild));
 
     if (!isAdmin && !await isBotOwner(interaction)) {
       throw new Error(messages.ytdlpAdminsOnly);
@@ -71,7 +72,7 @@ export default class implements Command {
       return;
     }
 
-    // pip can take a while; errors after this show privately via bot.ts.
+    // Pip can take a while; errors after this show privately via bot.ts.
     await interaction.deferReply({ephemeral: true});
 
     const outcome = subcommand === 'update'
