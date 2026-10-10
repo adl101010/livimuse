@@ -1,6 +1,5 @@
 import {describe, expect, it} from 'vitest';
-// .ts on purpose: vitest.config.ts aliases custom/controls.js imports to a stub.
-import {canonicalControlId, CONTROL_PREFIX, controlIds, legacyControlIds} from '../src/custom/controls.ts';
+import {canonicalControlId, CONTROL_PREFIX, controlIds, legacyControlIds} from '../src/custom/control-ids.js';
 
 describe('component ids', () => {
   it('prefixes every id with muse:, so other programs sharing the token can be told apart', () => {
