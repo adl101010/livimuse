@@ -27,3 +27,7 @@ services:
       # - LIVIMUSE_VOICE_STATUS=true          # show the song under the voice channel name
       # - LIVIMUSE_PRELOAD_NEXT=true          # prepare the next song while the current one plays
       # - LIVIMUSE_TIDY_SECONDS=60            # delete plain-text confirmations after this long (0 = keep)
+      # HTTP control API, off unless a token is set. Also publish the port, LAN only:
+      # - LIVIMUSE_API_TOKEN=
+    # ports:
+    #   - "8787:8787"

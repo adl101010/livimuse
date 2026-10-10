@@ -17,6 +17,7 @@ import {buildPlayingMessageEmbed} from '../utils/build-embed.js';
 import {truncate} from '../utils/string.js';
 import {prettyTime} from '../utils/time.js';
 import {messages} from './messages.js';
+import {controlIds} from './control-ids.js';
 import {skipVoteProgress} from './vote-skip.js';
 import {cardRefreshMs, describeSettings, repostAfterMessages, repostQuietMs, upNextCount} from './settings.js';
 
@@ -28,19 +29,8 @@ const log = (event: string, details: Record<string, unknown> = {}) => {
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-export const CONTROL_PREFIX = 'livimuse:';
-
-export const controlIds = {
-  back: `${CONTROL_PREFIX}back`,
-  rewind: `${CONTROL_PREFIX}rewind`,
-  playPause: `${CONTROL_PREFIX}play-pause`,
-  forward: `${CONTROL_PREFIX}forward`,
-  skip: `${CONTROL_PREFIX}skip`,
-  jump: `${CONTROL_PREFIX}jump`,
-  volumeDown: `${CONTROL_PREFIX}volume-down`,
-  volumeUp: `${CONTROL_PREFIX}volume-up`,
-  stop: `${CONTROL_PREFIX}stop`,
-};
+// The ids live in control-ids.ts (no heavy imports); re-exported for existing callers.
+export {canonicalControlId, CONTROL_PREFIX, controlIds, legacyControlIds} from './control-ids.js';
 
 export const SEEK_STEP_SECONDS = 15;
 export const VOLUME_STEP = 5;
@@ -178,6 +168,22 @@ export const forgetCard = (guildId: string): void => {
     stopTimers(card);
     liveCards.delete(guildId);
   }
+};
+
+// The channel the live card for this server is in, if there is one.
+export const liveCardChannelId = (guildId: string): string | undefined => liveCards.get(guildId)?.message.channelId;
+
+// Stop refreshing the live card and take its buttons away, for when playback is
+// ended from outside Discord (the control API).
+export const retireCard = async (guildId: string): Promise<void> => {
+  const card = liveCards.get(guildId);
+
+  if (!card) {
+    return;
+  }
+
+  forgetCard(guildId);
+  await card.message.edit({components: []}).catch(() => undefined);
 };
 
 const editCard = async (guildId: string, card: LiveCard, player: Player) => {

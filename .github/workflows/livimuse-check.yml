@@ -1,0 +1,32 @@
+# LiviMuse: the same type check, lint and tests the build workflow runs before
+# publishing, but for feature branches and pull requests. It never publishes an
+# image; livimuse-build.yml does that, and only for master.
+name: LiviMuse check
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [master]
+
+concurrency:
+  group: livimuse-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Type check, lint and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'yarn'
+      - run: yarn install --frozen-lockfile
+      - run: yarn prisma generate
+      - run: yarn tsc
+      - run: yarn lint
+      - run: yarn test

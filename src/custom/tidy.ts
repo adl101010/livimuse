@@ -2,8 +2,13 @@
 // "... added to the queue") after LIVIMUSE_TIDY_SECONDS, so the channel stays
 // readable. Anything with a card, embed, or buttons is kept, and so is anything
 // naming a person ("skipped by @x"), so there's still a record of who did what.
+//
+// Only messages this process sent are ever deleted. The bot token can be shared
+// with other programs that post as the same user, so being authored by the bot
+// isn't enough (see ownership.ts).
 import {Client, Message} from 'discord.js';
 import {isLiveCard} from './controls.js';
+import {installOwnershipTracking, isOwnMessage} from './ownership.js';
 import {tidySeconds} from './settings.js';
 
 let started = false;
@@ -23,17 +28,19 @@ export const startTidying = (client: Client): void => {
   }
 
   started = true;
+  installOwnershipTracking(client);
 
   client.on('messageCreate', message => {
     if (!message.guildId || message.author.id !== client.user?.id) {
       return;
     }
 
-    // Decide when it's due, not now: /play replies start as "thinking..." and are edited later.
+    // Decide when it's due, not now: /play replies start as "thinking..." and are
+    // edited later, and our own record of what we sent is complete by then.
     setTimeout(() => {
       message.fetch()
         .then(async fresh => {
-          if (isConfirmation(fresh)) {
+          if (isOwnMessage(fresh) && isConfirmation(fresh)) {
             await fresh.delete();
           }
         })

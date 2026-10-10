@@ -12,7 +12,6 @@ import {isUserInVoice} from './utils/channels.js';
 import Config from './services/config.js';
 import {generateDependencyReport} from '@discordjs/voice';
 import {REST} from '@discordjs/rest';
-import {Routes} from 'discord-api-types/v10';
 import registerCommandsOnGuild from './utils/register-commands-on-guild.js';
 
 const sanitizeErrorDetail = (error: unknown) => {
@@ -146,28 +145,29 @@ export default class {
 
       // Update commands
       const rest = new REST({version: '10'}).setToken(this.config.DISCORD_TOKEN);
-      if (this.shouldRegisterCommandsOnBot) {
-        spinner.text = '📡 updating commands on bot...';
-        await rest.put(
-          Routes.applicationCommands(this.client.user!.id),
-          {body: this.commandsByName.map(command => command.slashCommand.toJSON())},
-        );
-      } else {
-        spinner.text = '📡 updating commands in all guilds...';
 
-        await Promise.all([
-          ...this.client.guilds.cache.map(async guild => {
-            await registerCommandsOnGuild({
-              rest,
-              guildId: guild.id,
-              applicationId: this.client.user!.id,
-              commands: this.commandsByName.map(c => c.slashCommand),
-            });
-          }),
-          // Remove commands registered on bot (if they exist)
-          rest.put(Routes.applicationCommands(this.client.user!.id), {body: []}),
-        ],
-        );
+      // LiviMuse: the bot token may be shared with other programs, so commands
+      // are only ever managed per guild, one command at a time. The global scope
+      // is never read, replaced or cleared, and other programs' commands are left alone.
+      if (this.shouldRegisterCommandsOnBot) {
+        console.warn('REGISTER_COMMANDS_ON_BOT is ignored: LiviMuse only registers commands per guild so it never overwrites the commands of other programs.');
+      }
+
+      spinner.text = '📡 updating commands in all guilds...';
+
+      for (const guild of this.client.guilds.cache.values()) {
+        try {
+          // Sequential: one guild at a time keeps us well inside Discord's rate limits.
+          // eslint-disable-next-line no-await-in-loop
+          await registerCommandsOnGuild({
+            rest,
+            guildId: guild.id,
+            applicationId: this.client.user!.id,
+            commands: this.commandsByName.map(c => c.slashCommand),
+          });
+        } catch (error: unknown) {
+          console.error(`Couldn't update commands in guild ${guild.id}: ${sanitizeErrorForLog(error)}`);
+        }
       }
 
       this.client.user!.setPresence({

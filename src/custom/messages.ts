@@ -51,6 +51,7 @@ export const messages = {
   actionRewound: (seconds: number) => `⏪ rewound ${seconds}s`,
   actionForwarded: (seconds: number) => `⏩ forward ${seconds}s`,
   actionJumped: (time: string) => `🕒 jumped to ${time}`,
+  actionDisconnected: '🔌 disconnected',
   actionVolumeDown: (level: number) => `🔉 volume ${level}%`,
   actionVolumeUp: (level: number) => `🔊 volume ${level}%`,
   volumeAtMin: 'volume is already at 0%',

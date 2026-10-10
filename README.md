@@ -85,6 +85,14 @@ What no fork can avoid: YouTube and Discord change their platforms over time. Mo
 - The channel choice is saved in the data folder, so it survives restarts and image updates. The daily check follows it.
 - Only server admins (Administrator or Manage Server) and the bot's owner can use it, because one yt-dlp serves every server the bot is in.
 
+### Control API
+
+- A small authenticated HTTP API lets a trusted local service play, pause, skip, stop, change the volume, and read the queue without Discord interactions. Bots can't run other bots' slash commands or click their buttons, so this is how an AI agent or home automation can control the music. Off unless you set a token. See [Control API](#control-api).
+
+### Safe on a shared bot token
+
+- Several programs can run on one Discord application and one token. LiviMuse only creates and updates its own slash commands, one at a time, and never touches the global scope or anyone else's commands. It ignores interactions that aren't its own, and only deletes messages it sent itself. See [Sharing a bot token](#sharing-a-bot-token-with-other-programs).
+
 ### Faster song changes
 
 - **The next song is prepared ahead of time.** About 20 seconds into each song, the bot downloads and converts the next one into its cache, so it starts almost instantly when its turn comes.
@@ -186,6 +194,9 @@ All are optional. Change a value, then restart the container.
 | `LIVIMUSE_PRELOAD_NEXT` | `true` | Prepare the next song while the current one plays |
 | `LIVIMUSE_TIDY_SECONDS` | `60` | Delete plain-text confirmations after this long (`0` = keep them) |
 | `LIVIMUSE_YT_DLP_UPDATE_HOURS` | `24` | Re-check yt-dlp while running (`0` = only at startup, max `168`). Needs `YT_DLP_AUTO_UPDATE=true` |
+| `LIVIMUSE_API_TOKEN` | *(off)* | Bearer token for the [Control API](#control-api). The API doesn't listen at all until this is set |
+| `LIVIMUSE_API_PORT` | `8787` | Port the Control API listens on (inside the container) |
+| `LIVIMUSE_API_BIND` | `0.0.0.0` | Address the Control API binds to (inside the container) |
 
 A value that isn't a number falls back to the default, and out-of-range values are clamped. The bot never crashes on a bad setting.
 
@@ -198,10 +209,105 @@ A value that isn't a number falls back to the default, and out-of-range values a
 | `YT_DLP_COOKIES_PATH` | A YouTube cookie file for age-restricted videos. Mount it outside `/data`, and treat it like a password |
 | `ENABLE_SPONSORBLOCK` / `SPONSORBLOCK_TIMEOUT` | Skip non-music intros and outros using [SponsorBlock](https://sponsor.ajay.app/) |
 | `BOT_STATUS` / `BOT_ACTIVITY_TYPE` / `BOT_ACTIVITY` / `BOT_ACTIVITY_URL` | The bot's presence, e.g. `online` / `PLAYING` / `music` |
-| `REGISTER_COMMANDS_ON_BOT` | Register commands globally instead of per server. Useful for 10+ servers; updates can take up to an hour |
+| `REGISTER_COMMANDS_ON_BOT` | **Ignored in LiviMuse.** Commands are always registered per server so they can't overwrite other programs' commands |
 | `ENV_FILE` | Read variables from a file instead (default `/config`) |
 
 Per-server options such as default volume, playlist limit, and ducking when people speak are set in Discord with `/config` (Manage Server only).
+
+## Control API
+
+An HTTP API for a trusted local service. It does nothing until `LIVIMUSE_API_TOKEN` is set, and it has no CORS headers and no HTML, only JSON.
+
+```yaml
+services:
+  livimuse:
+    image: ghcr.io/adl101010/livimuse:latest
+    ports:
+      - "8787:8787"
+    environment:
+      - LIVIMUSE_API_TOKEN=   # a long random string
+```
+
+**Keep it on your LAN.** The port gives full control of the music, so never forward it from your router or publish it to the internet. To limit it to one network interface, put the host's LAN address in front of the mapping, for example `"192.168.1.10:8787:8787"`, and firewall it to the machines that need it.
+
+Generate a token with `openssl rand -hex 32`. Anyone who holds it can control the music in every server the bot is in, so keep it as secret as the Discord token, and don't publish the port beyond your LAN.
+
+### Authentication and errors
+
+- Send `Authorization: Bearer <token>` on every request except `GET /api/health`. A missing or wrong token is `401`.
+- Request bodies are JSON (`Content-Type: application/json`), up to 16 KB.
+- Errors look like `{"error": "<code>", "message": "<human readable>"}` with a status of `400` (bad request), `401`, `404` (not found), `405`, `409` (conflict with the current state), `413`, `415`, `500`, or `503` (still connecting to Discord).
+- Every call is logged with its method, path, server and user. The token and request bodies are never logged.
+
+### Routes
+
+| Route | What it does |
+|---|---|
+| `GET /api/health` | `{"ok": true, "ready": true}`. No token needed. `ready` is false while the bot is still connecting |
+| `GET /api/users/:userId/voice` | The server and voice channel a user is in, or `404`. `matches` lists every server if they're in voice in several |
+| `GET /api/guilds/:guildId/status` | Connected channel, now playing (title, url, duration, position, requester), paused, loop, volume, and the first 25 queued songs plus the total |
+| `POST /api/play` | Queue a song, playlist, link or search. Joins voice like `/play` |
+| `POST /api/guilds/:guildId/pause` | Pause |
+| `POST /api/guilds/:guildId/resume` | Resume (joins the user's voice channel if the bot isn't connected) |
+| `POST /api/guilds/:guildId/skip` | Skip to the next song |
+| `POST /api/guilds/:guildId/stop` | Stop and clear the queue |
+| `POST /api/guilds/:guildId/disconnect` | Pause and leave voice, keeping the queue |
+| `POST /api/guilds/:guildId/volume` | Body `{"value": 0-100}` |
+
+The control routes take an optional `{"userId": "..."}` body so the change is credited on the player card's "Last" line. They bypass the DJ role, because the API token is the permission.
+
+**`POST /api/play`** body:
+
+| Field | Required | Meaning |
+|---|---|---|
+| `query` | yes | What to play: a search, a YouTube/Spotify/SoundCloud link or a playlist |
+| `userId` | yes | Who is asking. The song is attributed to them |
+| `guildId` | no | Which server. Needed when the user is in voice in more than one |
+| `voiceChannelId` | no | Join this channel instead of the user's own |
+| `textChannelId` | no | Post the now-playing card here. Without it the call is silent |
+| `next` | no | Put it at the front of the queue |
+| `shuffle` | no | Shuffle the added songs |
+
+The voice channel is `voiceChannelId` if given, otherwise the channel `userId` is in (in `guildId` if given, otherwise any server). It returns `409 user_not_in_voice` if there isn't one, and `409 ambiguous_guild` (with the choices) if the user is in voice in several servers and no `guildId` was sent.
+
+The response lists what was queued, with `position` `0` meaning now playing and `1` meaning next up, and the current status.
+
+### Examples
+
+```bash
+TOKEN=...   # your LIVIMUSE_API_TOKEN
+API=http://192.168.1.10:8787
+
+# Is it up?
+curl $API/api/health
+
+# Where is a user?
+curl -H "Authorization: Bearer $TOKEN" $API/api/users/111111111111111111/voice
+
+# Play something where that user is, and post the card in a text channel
+curl -X POST $API/api/play \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"query": "daft punk one more time", "userId": "111111111111111111", "textChannelId": "666666666666666661"}'
+
+# What's playing?
+curl -H "Authorization: Bearer $TOKEN" $API/api/guilds/333333333333333333/status
+
+# Skip, pause, and set the volume
+curl -X POST -H "Authorization: Bearer $TOKEN" $API/api/guilds/333333333333333333/skip
+curl -X POST -H "Authorization: Bearer $TOKEN" $API/api/guilds/333333333333333333/pause
+curl -X POST $API/api/guilds/333333333333333333/volume \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"value": 20}'
+```
+
+## Sharing a bot token with other programs
+
+Several programs can run on one Discord application and token, and then every one of them receives every interaction and posts as the same user. LiviMuse is built to coexist:
+
+- **Commands.** At startup and when it joins a server, LiviMuse looks at the server's commands, then creates or overwrites **only its own**, one at a time, skipping any that are unchanged. It never reads, replaces or clears the global scope, and it only deletes names on its own list of retired commands. Other programs' commands are left alone, whatever order the programs start in. `REGISTER_COMMANDS_ON_BOT` is ignored for the same reason.
+- **Interactions.** Slash commands, autocomplete and buttons that aren't LiviMuse's are ignored without a reply. Every LiviMuse button and pop-up id starts with `muse:`. Cards posted before that prefix existed (`livimuse:`) keep working.
+- **Message tidying.** Auto-tidy only deletes messages this process sent, which it tracks as it sends them. It never deletes a message just because it was posted by the bot's user.
+
+The other programs need to follow the same rules: register their own commands individually, and ignore interactions they don't own.
 
 ## Customizing replies
 
@@ -231,6 +337,9 @@ All LiviMuse code lives in [`src/custom/`](src/custom/). Muse's own files are to
 | `src/custom/tidy.ts` | Deleting old confirmations |
 | `src/custom/yt-dlp-updates.ts` | Daily yt-dlp updates |
 | `src/custom/settings.ts` | All `LIVIMUSE_*` settings |
+| `src/custom/command-registration.ts` | Ownership-aware slash command registration |
+| `src/custom/ownership.ts` | Tracks which messages this process sent |
+| `src/custom/api/` | The Control API: request handling (`handler.ts`), the HTTP server (`server.ts`), and the stand-in interaction `/play` runs against (`interaction.ts`) |
 | `src/custom/commands/` | Add your own slash commands here. Copy `example.ts` and list it in `index.ts` |
 
 Where Muse's files are changed, it's by small hooks, each marked with a `LiviMuse` comment:

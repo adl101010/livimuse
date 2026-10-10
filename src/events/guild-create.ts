@@ -25,8 +25,9 @@ export default async (guild: Guild): Promise<void> => {
 
   const config = container.get<Config>(TYPES.Config);
 
-  // Setup slash commands
-  if (!config.REGISTER_COMMANDS_ON_BOT) {
+  // Setup slash commands. LiviMuse always registers per guild (never globally),
+  // so a failure here must not stop the owner welcome below.
+  try {
     const client = container.get<Client>(TYPES.Client);
 
     const rest = new REST({version: '10'}).setToken(config.DISCORD_TOKEN);
@@ -37,6 +38,8 @@ export default async (guild: Guild): Promise<void> => {
       guildId: guild.id,
       commands: container.getAll<Command>(TYPES.Command).map(command => command.slashCommand),
     });
+  } catch (error: unknown) {
+    console.error(`Couldn't register commands in new guild ${guild.id}: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   const owner = await guild.fetchOwner();
