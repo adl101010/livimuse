@@ -21,6 +21,9 @@ const mocks = vi.hoisted(() => {
       findAudioFallback: (song: unknown) => Promise<unknown>;
       guildId: string;
     }>,
+    restDelete: vi.fn(),
+    restGet: vi.fn(),
+    restPost: vi.fn(),
     restPut: vi.fn(),
     restSetToken: vi.fn(),
     settingUpsert: vi.fn(),
@@ -40,8 +43,20 @@ vi.mock('@discordjs/rest', () => ({
       return this;
     }
 
+    get(route: string, options: unknown) {
+      return mocks.restGet(route, options);
+    }
+
+    post(route: string, options: unknown) {
+      return mocks.restPost(route, options);
+    }
+
     put(route: string, options: unknown) {
       return mocks.restPut(route, options);
+    }
+
+    delete(route: string, options: unknown) {
+      return mocks.restDelete(route, options);
     }
   },
 }));
@@ -129,6 +144,7 @@ interface StructuralCommand {
 interface StructuralInteraction {
   channelId: string | null;
   commandName: string;
+  customId?: string;
   deferred: boolean;
   editReply: ReturnType<typeof vi.fn>;
   guild: object | null;
@@ -243,6 +259,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.login.mockResolvedValue(undefined);
   mocks.restPut.mockResolvedValue(undefined);
+  mocks.restGet.mockResolvedValue([]);
+  mocks.restPost.mockResolvedValue(undefined);
+  mocks.restDelete.mockResolvedValue(undefined);
   mocks.settingUpsert.mockResolvedValue({guildId: 'guild-new'});
   mocks.spinner.text = '';
   mocks.spinner.start.mockReturnValue(mocks.spinner);
@@ -250,31 +269,87 @@ beforeEach(() => {
 });
 
 describe('Discord command registration and ready lifecycle', () => {
-  it('replaces global commands with the full command set in bot registration mode', async () => {
-    const {commands, handlers, setPresence} = await registerBot(true, makeCommandSet(), ['guild-a', 'guild-b']);
+  it('creates each command in every cached guild one by one and never writes the global scope', async () => {
+    const {commands, handlers, setPresence} = await registerBot(false, makeCommandSet(), ['guild-a', 'guild-b']);
 
-    expect(mocks.login).toHaveBeenCalledOnce();
-    expect(mocks.login).toHaveBeenCalledWith();
     await invoke(handlers, 'ready');
 
     expect(mocks.restSetToken).toHaveBeenCalledWith('fake-token');
-    expect(mocks.restPut).toHaveBeenCalledOnce();
-    expect(mocks.restPut).toHaveBeenCalledWith('/applications/application-id/commands', {
-      body: commands.map(command => command.slashCommand.toJSON()),
-    });
-    expect(setPresence).toHaveBeenCalledAfter(mocks.restPut);
+
+    for (const guild of ['guild-a', 'guild-b']) {
+      expect(mocks.restGet).toHaveBeenCalledWith(`/applications/application-id/guilds/${guild}/commands`, undefined);
+
+      for (const command of commands) {
+        expect(mocks.restPost).toHaveBeenCalledWith(`/applications/application-id/guilds/${guild}/commands`, {
+          body: command.slashCommand.toJSON(),
+        });
+      }
+    }
+
+    expect(mocks.restPost).toHaveBeenCalledTimes(commands.length * 2);
+    // Shared token: the global scope and bulk overwrites are off limits.
+    expect(mocks.restPut).not.toHaveBeenCalled();
+    expect(mocks.restGet).not.toHaveBeenCalledWith('/applications/application-id/commands', expect.anything());
+    expect(mocks.restDelete).not.toHaveBeenCalled();
+    expect(setPresence).toHaveBeenCalledAfter(mocks.restPost);
   });
 
-  it('registers every cached guild and removes global commands in guild registration mode', async () => {
-    const {commands, handlers} = await registerBot(false, makeCommandSet(), ['guild-a', 'guild-b']);
+  it('ignores REGISTER_COMMANDS_ON_BOT and still only registers per guild', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const {commands, handlers} = await registerBot(true, makeCommandSet(), ['guild-a']);
 
     await invoke(handlers, 'ready');
 
-    const body = commands.map(command => command.slashCommand.toJSON());
-    expect(mocks.restPut).toHaveBeenCalledTimes(3);
-    expect(mocks.restPut).toHaveBeenCalledWith('/applications/application-id/guilds/guild-a/commands', {body});
-    expect(mocks.restPut).toHaveBeenCalledWith('/applications/application-id/guilds/guild-b/commands', {body});
-    expect(mocks.restPut).toHaveBeenCalledWith('/applications/application-id/commands', {body: []});
+    expect(mocks.restPost).toHaveBeenCalledTimes(commands.length);
+    expect(mocks.restPut).not.toHaveBeenCalled();
+    expect(mocks.restPost).not.toHaveBeenCalledWith('/applications/application-id/commands', expect.anything());
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('REGISTER_COMMANDS_ON_BOT is ignored'));
+    warn.mockRestore();
+  });
+
+  it('leaves other programs commands alone and skips commands that are unchanged', async () => {
+    const commands = makeCommandSet();
+    const {handlers} = await registerBot(false, commands, ['guild-a']);
+    mocks.restGet.mockResolvedValue([
+      // Another program's commands on the same application.
+      {id: '1', name: 'recap', description: 'recap the raid', type: 1},
+      {id: '2', name: 'Link characters', type: 2},
+      // One of ours, exactly as Discord returns it (with server-added fields).
+      {
+        id: '3',
+        application_id: 'application-id',
+        guild_id: 'guild-a',
+        version: '9',
+        default_member_permissions: null,
+        dm_permission: true,
+        nsfw: false,
+        type: 1,
+        name: 'play',
+        description: 'play command',
+      },
+    ]);
+
+    await invoke(handlers, 'ready');
+
+    expect(mocks.restPost).toHaveBeenCalledTimes(commands.length - 1);
+    expect(mocks.restPost).not.toHaveBeenCalledWith(expect.anything(), {body: expect.objectContaining({name: 'play'})});
+    expect(mocks.restDelete).not.toHaveBeenCalled();
+    expect(mocks.restPut).not.toHaveBeenCalled();
+  });
+
+  it('keeps registering other guilds when one guild fails', async () => {
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const {handlers, setPresence} = await registerBot(false, [makeCommand('play')], ['guild-a', 'guild-b']);
+    mocks.restGet.mockRejectedValueOnce(new Error('Missing Access'));
+
+    await invoke(handlers, 'ready');
+
+    expect(errorLog).toHaveBeenCalledWith(expect.stringContaining('guild guild-a'));
+    expect(mocks.restPost).toHaveBeenCalledWith('/applications/application-id/guilds/guild-b/commands', {
+      body: {description: 'play command', name: 'play'},
+    });
+    expect(setPresence).toHaveBeenCalled();
+    errorLog.mockRestore();
   });
 
   it('applies configured presence and reports dependency diagnostics plus the invite link', async () => {
@@ -341,14 +416,18 @@ describe('guild onboarding', () => {
       update: {},
       where: {guildId: 'guild-new'},
     });
-    expect(mocks.restPut).toHaveBeenCalledWith('/applications/application-id/guilds/guild-new/commands', {
-      body: commands.map(command => command.slashCommand.toJSON()),
-    });
+    for (const command of commands) {
+      expect(mocks.restPost).toHaveBeenCalledWith('/applications/application-id/guilds/guild-new/commands', {
+        body: command.slashCommand.toJSON(),
+      });
+    }
+
+    expect(mocks.restPut).not.toHaveBeenCalled();
     expect(guild.fetchOwner).toHaveBeenCalledOnce();
     expect(ownerSend).toHaveBeenCalledWith(expect.stringContaining('https://github.com/museofficial/muse/wiki/Configuring-Bot-Permissions'));
   });
 
-  it('skips guild command registration in global mode but still initializes and welcomes', async () => {
+  it('registers guild commands even when REGISTER_COMMANDS_ON_BOT is set, and still welcomes', async () => {
     const {handlers} = await registerBot(true);
     const ownerSend = vi.fn().mockResolvedValue(undefined);
     const guild = {
@@ -359,6 +438,7 @@ describe('guild onboarding', () => {
     await invoke(handlers, 'guildCreate', guild);
 
     expect(mocks.settingUpsert).toHaveBeenCalledWith(expect.objectContaining({where: {guildId: 'guild-global'}}));
+    expect(mocks.restPost).toHaveBeenCalledWith('/applications/application-id/guilds/guild-global/commands', expect.anything());
     expect(mocks.restPut).not.toHaveBeenCalled();
     expect(ownerSend).toHaveBeenCalledOnce();
   });
@@ -477,6 +557,64 @@ describe('interaction boundaries', () => {
 
     expect(interaction.editReply).toHaveBeenCalledWith('🚫 ope: command failure');
     expect(interaction.reply).not.toHaveBeenCalled();
+  });
+});
+
+describe('interactions that belong to other programs sharing the token', () => {
+  it('ignores slash commands, context menus and autocomplete it does not own without replying', async () => {
+    const command = makeCommand('play');
+    const {handlers} = await registerBot(false, [command]);
+
+    const slash = makeInteraction('recap');
+    const contextMenu = makeInteraction('Link characters', {isChatInputCommand: () => false});
+    const autocomplete = makeInteraction('link', {
+      isAutocomplete: () => true,
+      isChatInputCommand: () => false,
+      isCommand: () => false,
+    });
+
+    for (const interaction of [slash, contextMenu, autocomplete]) {
+      await invoke(handlers, 'interactionCreate', interaction);
+      expect(interaction.reply).not.toHaveBeenCalled();
+      expect(interaction.editReply).not.toHaveBeenCalled();
+    }
+
+    expect(command.execute).not.toHaveBeenCalled();
+  });
+
+  it('ignores buttons without a muse: id, and routes its own (including cards posted before the rename)', async () => {
+    const handleButtonInteraction = vi.fn().mockResolvedValue(undefined);
+    const command = makeCommand('controls', {
+      handledButtonIds: ['muse:skip', 'livimuse:skip'],
+      handleButtonInteraction,
+    } as Partial<StructuralCommand>);
+    const {handlers} = await registerBot(false, [command]);
+    const button = (customId: string) => makeInteraction('', {
+      customId,
+      isButton: () => true,
+      isChatInputCommand: () => false,
+      isCommand: () => false,
+    });
+
+    const foreign = button('logs:next-page');
+    const pagination = button('previous');
+
+    for (const interaction of [foreign, pagination]) {
+      await invoke(handlers, 'interactionCreate', interaction);
+      expect(interaction.reply).not.toHaveBeenCalled();
+      expect(interaction.editReply).not.toHaveBeenCalled();
+    }
+
+    expect(handleButtonInteraction).not.toHaveBeenCalled();
+
+    const current = button('muse:skip');
+    const legacy = button('livimuse:skip');
+    await invoke(handlers, 'interactionCreate', current);
+    await invoke(handlers, 'interactionCreate', legacy);
+
+    expect(handleButtonInteraction).toHaveBeenCalledTimes(2);
+    expect(handleButtonInteraction).toHaveBeenCalledWith(current);
+    expect(handleButtonInteraction).toHaveBeenCalledWith(legacy);
   });
 });
 

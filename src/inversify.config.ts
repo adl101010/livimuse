@@ -43,6 +43,7 @@ import FileCacheProvider from './services/file-cache.js';
 import KeyValueCacheProvider from './services/key-value-cache.js';
 import {customCommands} from './custom/commands/index.js';
 import {gateCommands} from './custom/permissions.js';
+import ApiServer from './custom/api/server.js';
 
 const container = new Container();
 
@@ -108,6 +109,7 @@ customCommands.forEach(command => {
   container.bind<Command>(TYPES.Command).to(command).inSingletonScope();
 });
 gateCommands(container);
+container.bind(ApiServer).toSelf().inSingletonScope();
 
 // Static libraries
 container.bind(TYPES.FileCache).to(FileCacheProvider);

@@ -1,6 +1,6 @@
 import {REST} from '@discordjs/rest';
-import {Routes} from 'discord-api-types/v10';
 import Command from '../commands/index.js';
+import {reconcileGuildCommands} from '../custom/command-registration.js';
 
 interface RegisterCommandsOnGuildOptions {
   rest: REST;
@@ -9,11 +9,12 @@ interface RegisterCommandsOnGuildOptions {
   commands: Array<Command['slashCommand']>;
 }
 
+// LiviMuse: reconcile instead of bulk-replacing the guild's commands, so other
+// programs sharing this Discord application keep theirs.
 const registerCommandsOnGuild = async ({rest, applicationId, guildId, commands}: RegisterCommandsOnGuildOptions) => {
-  await rest.put(
-    Routes.applicationGuildCommands(applicationId, guildId),
-    {body: commands.map(command => command.toJSON())},
-  );
+  const result = await reconcileGuildCommands({rest, applicationId, guildId, commands});
+
+  console.log(`[livimuse commands] guild ${guildId}: ${result.created.length} created, ${result.updated.length} updated, ${result.unchanged.length} unchanged, ${result.deleted.length} removed`);
 };
 
 export default registerCommandsOnGuild;

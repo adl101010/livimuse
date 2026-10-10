@@ -28,7 +28,13 @@ const log = (event: string, details: Record<string, unknown> = {}) => {
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-export const CONTROL_PREFIX = 'livimuse:';
+// Every component id LiviMuse creates starts with this. The bot token can be shared
+// with other programs that see every interaction, and ids without this prefix are
+// ignored, so we never answer (or break) someone else's buttons.
+export const CONTROL_PREFIX = 'muse:';
+
+// Cards posted before the prefix changed carry these ids; they keep working.
+const LEGACY_CONTROL_PREFIX = 'livimuse:';
 
 export const controlIds = {
   back: `${CONTROL_PREFIX}back`,
@@ -41,6 +47,13 @@ export const controlIds = {
   volumeUp: `${CONTROL_PREFIX}volume-up`,
   stop: `${CONTROL_PREFIX}stop`,
 };
+
+export const legacyControlIds: string[] = Object.values(controlIds).map(id => LEGACY_CONTROL_PREFIX + id.slice(CONTROL_PREFIX.length));
+
+// Maps an id from a card posted before the prefix changed to its current id.
+export const canonicalControlId = (customId: string): string => (customId.startsWith(LEGACY_CONTROL_PREFIX)
+  ? CONTROL_PREFIX + customId.slice(LEGACY_CONTROL_PREFIX.length)
+  : customId);
 
 export const SEEK_STEP_SECONDS = 15;
 export const VOLUME_STEP = 5;
@@ -178,6 +191,22 @@ export const forgetCard = (guildId: string): void => {
     stopTimers(card);
     liveCards.delete(guildId);
   }
+};
+
+// The channel the live card for this server is in, if there is one.
+export const liveCardChannelId = (guildId: string): string | undefined => liveCards.get(guildId)?.message.channelId;
+
+// Stop refreshing the live card and take its buttons away, for when playback is
+// ended from outside Discord (the control API).
+export const retireCard = async (guildId: string): Promise<void> => {
+  const card = liveCards.get(guildId);
+
+  if (!card) {
+    return;
+  }
+
+  forgetCard(guildId);
+  await card.message.edit({components: []}).catch(() => undefined);
 };
 
 const editCard = async (guildId: string, card: LiveCard, player: Player) => {

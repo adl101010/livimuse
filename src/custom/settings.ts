@@ -65,6 +65,16 @@ export const tidySeconds = () => {
   return seconds > 0 && seconds < 5 ? 5 : seconds;
 };
 
+// Control API (see README). Disabled unless a token is set.
+export const apiToken = () => process.env.LIVIMUSE_API_TOKEN?.trim() ?? '';
+
+export const apiPort = () => Math.round(envNumber('LIVIMUSE_API_PORT', 8787, 1, 65535));
+
+export const apiBind = () => {
+  const value = process.env.LIVIMUSE_API_BIND?.trim();
+  return value === undefined || value === '' ? '0.0.0.0' : value;
+};
+
 export const describeSettings = () => [
   `card refresh ${cardRefreshMs() / 1000}s`,
   repostAfterMessages() === 0 ? 'repost off' : `repost after ${repostAfterMessages()} messages + ${repostQuietMs() / 1000}s quiet`,
@@ -73,5 +83,6 @@ export const describeSettings = () => [
   voiceStatusEnabled() ? 'voice status on' : 'voice status off',
   preloadNextEnabled() ? 'preload next on' : 'preload next off',
   tidySeconds() === 0 ? 'tidy off' : `tidy after ${tidySeconds()}s`,
+  apiToken() === '' ? 'api off' : `api on :${apiPort()}`,
   djRoleNames().length === 0 ? 'DJ role off' : `DJ role ${envList('LIVIMUSE_DJ_ROLE').join('/')}, open commands /${openCommands().join(' /')}`,
 ].join(', ');

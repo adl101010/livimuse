@@ -75,4 +75,7 @@ ENV COMMIT_HASH=$COMMIT_HASH
 ENV BUILD_DATE=$BUILD_DATE
 ENV ENV_FILE=/config
 
+# LiviMuse control API (only listens when LIVIMUSE_API_TOKEN is set)
+EXPOSE 8787
+
 CMD ["tini", "--", "node", "--enable-source-maps", "dist/scripts/migrate-and-start.js"]

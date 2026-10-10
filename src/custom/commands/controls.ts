@@ -21,10 +21,13 @@ import {parseTime, prettyTime} from '../../utils/time.js';
 import durationStringToSeconds from '../../utils/duration-string-to-seconds.js';
 import {
   buildCard,
+  canonicalControlId,
   clearLastAction,
+  CONTROL_PREFIX,
   controlIds,
   enableLiveCards,
   forgetCard,
+  legacyControlIds,
   SEEK_STEP_SECONDS,
   VOLUME_STEP,
   setLastAction,
@@ -37,10 +40,11 @@ import {assertDj, isDj} from '../permissions.js';
 import {clearVoiceStatus, startVoiceStatus} from '../voice-status.js';
 import {startPreloading} from '../preload.js';
 import {startTidying} from '../tidy.js';
+import ApiServer from '../api/server.js';
 import {castSkipVote, clearSkipVotes} from '../vote-skip.js';
 import {startYtDlpUpdates} from '../yt-dlp-updates.js';
 
-const JUMP_MODAL_ID = 'livimuse:jump-modal';
+const JUMP_MODAL_ID = `${CONTROL_PREFIX}jump-modal`;
 const JUMP_FIELD_ID = 'time';
 const JUMP_TIMEOUT_MS = 2 * 60 * 1000;
 
@@ -66,13 +70,14 @@ export default class implements Command {
     .setName('controls')
     .setDescription('show the player with playback buttons');
 
-  public readonly handledButtonIds = Object.values(controlIds);
+  public readonly handledButtonIds = [...Object.values(controlIds), ...legacyControlIds];
 
   private readonly playerManager: PlayerManager;
 
   constructor(
     @inject(TYPES.Managers.Player) playerManager: PlayerManager,
     @inject(TYPES.Client) client: Client,
+    @inject(ApiServer) apiServer: ApiServer,
   ) {
     this.playerManager = playerManager;
     enableLiveCards(guildId => playerManager.get(guildId), client);
@@ -81,6 +86,7 @@ export default class implements Command {
     startVoiceStatus(client, guildId => playerManager.get(guildId));
     startPreloading(client, guildId => playerManager.get(guildId));
     startTidying(client);
+    apiServer.start();
   }
 
   public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -96,7 +102,7 @@ export default class implements Command {
   // Errors thrown before the press is acknowledged are shown privately by bot.ts.
   public async handleButtonInteraction(interaction: ButtonInteraction): Promise<void> {
     const dj = isDj(interaction);
-    const {customId} = interaction;
+    const customId = canonicalControlId(interaction.customId);
 
     // Without the DJ role you can still vote to skip.
     if (!dj && customId !== controlIds.skip) {
@@ -156,7 +162,7 @@ export default class implements Command {
 
   // Pause/resume, ±15s, and volume: edit the card the button is on.
   private async updateInPlace(interaction: ButtonInteraction, player: Player) {
-    this.validateInPlace(interaction.customId, player);
+    this.validateInPlace(canonicalControlId(interaction.customId), player);
 
     await interaction.deferUpdate();
 
@@ -200,7 +206,7 @@ export default class implements Command {
   private async performInPlace(interaction: ButtonInteraction, player: Player) {
     const {guildId, user} = interaction;
 
-    switch (interaction.customId) {
+    switch (canonicalControlId(interaction.customId)) {
       case controlIds.playPause:
         setLastAction(guildId!, await this.togglePlayback(interaction, player), user.id);
         break;
@@ -214,9 +220,9 @@ export default class implements Command {
         break;
       case controlIds.volumeDown:
       case controlIds.volumeUp: {
-        const level = this.nextVolume(interaction.customId, player);
+        const level = this.nextVolume(canonicalControlId(interaction.customId), player);
         player.setVolume(level);
-        setLastAction(guildId!, interaction.customId === controlIds.volumeUp ? messages.actionVolumeUp(level) : messages.actionVolumeDown(level), user.id);
+        setLastAction(guildId!, canonicalControlId(interaction.customId) === controlIds.volumeUp ? messages.actionVolumeUp(level) : messages.actionVolumeDown(level), user.id);
         break;
       }
 
@@ -274,7 +280,7 @@ export default class implements Command {
 
   // Skip and back post a new card, which strips the buttons off this one.
   private async changeSong(interaction: ButtonInteraction, player: Player, announcement?: string) {
-    const isSkip = interaction.customId === controlIds.skip;
+    const isSkip = canonicalControlId(interaction.customId) === controlIds.skip;
 
     if (isSkip && !player.canGoForward(1)) {
       throw new Error('no song to skip to');
