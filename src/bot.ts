@@ -150,7 +150,7 @@ export default class {
       // are only ever managed per guild, one command at a time. The global scope
       // is never read, replaced or cleared, and other programs' commands are left alone.
       if (this.shouldRegisterCommandsOnBot) {
-        console.warn('REGISTER_COMMANDS_ON_BOT is ignored: LiviMuse only registers commands per guild so it never overwrites other programs' commands.');
+        console.warn('REGISTER_COMMANDS_ON_BOT is ignored: LiviMuse only registers commands per guild so it never overwrites the commands of other programs.');
       }
 
       spinner.text = '📡 updating commands in all guilds...';
