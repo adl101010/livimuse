@@ -307,6 +307,11 @@ describe('request validation', () => {
     expect(world.addToQueue).not.toHaveBeenCalled();
   });
 
+  it('answers 400 for ids that are not Discord ids, including bad escapes', async () => {
+    expect((await call('GET', '/api/guilds/not-an-id/status')).status).toBe(400);
+    expect((await call('GET', '/api/users/%E0%A4%A/voice')).status).toBe(400);
+  });
+
   it('answers with the documented error shape', async () => {
     const response = await call('POST', '/api/play', {body: {userId: USER}});
 

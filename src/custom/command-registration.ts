@@ -12,7 +12,7 @@ import {Routes} from 'discord-api-types/v10';
 // be removed from guilds. Never put a name here that another program owns.
 export const STALE_COMMAND_NAMES: readonly string[] = [];
 
-type CommandPayload = {name: string; type?: number; [key: string]: unknown};
+type CommandPayload = {[key: string]: unknown; name: string; type?: number};
 
 type ExistingCommand = CommandPayload & {id: string};
 

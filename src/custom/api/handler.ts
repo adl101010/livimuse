@@ -275,7 +275,7 @@ const voiceChannelById = (client: Client, channelId: string, guildId?: string): 
   return {guild: channel.guild, channel};
 };
 
-// voiceChannelId if given; otherwise the voice channel the user is in.
+// Use voiceChannelId if given; otherwise the voice channel the user is in.
 const resolvePlayTarget = (client: Client, {userId, guildId, voiceChannelId}: {userId: string; guildId?: string; voiceChannelId?: string}): VoiceMatch => {
   if (voiceChannelId) {
     return voiceChannelById(client, voiceChannelId, guildId);
@@ -394,7 +394,23 @@ const play = async (deps: ApiDeps, body: Record<string, unknown>, context: Conte
   };
 };
 
-const resumeTarget = (deps: ApiDeps, guild: Guild, body: Record<string, unknown>, userId?: string) => {
+// What every control action gets to work with.
+interface ControlRequest {
+  deps: ApiDeps;
+  guild: Guild;
+  player: Player;
+  body: Record<string, unknown>;
+  userId?: string;
+}
+
+// Credit a change to the user on the card's "Last" line, when we know who asked.
+const credit = ({deps, guild, userId}: ControlRequest, text: string) => {
+  if (userId) {
+    deps.cards.setLastAction(guild.id, text, userId);
+  }
+};
+
+const resumeTarget = ({deps, guild, body, userId}: ControlRequest) => {
   const voiceChannelId = optionalSnowflake(body, 'voiceChannelId');
 
   if (voiceChannelId) {
@@ -413,117 +429,109 @@ const resumeTarget = (deps: ApiDeps, guild: Guild, body: Record<string, unknown>
   return channel;
 };
 
-const control = async (deps: ApiDeps, guildId: string, action: string, body: Record<string, unknown>, context: Context) => {
+// Each action mirrors the matching slash command, so the same preconditions apply.
+const CONTROL_ACTIONS = new Map<string, (request: ControlRequest) => Promise<void> | void>([
+  ['pause', request => {
+    if (request.player.status !== STATUS.PLAYING) {
+      throw new ApiError(409, 'not_playing', 'nothing is playing');
+    }
+
+    request.player.pause();
+    credit(request, messages.actionPaused);
+  }],
+  ['resume', async request => {
+    const {player} = request;
+
+    if (player.status === STATUS.PLAYING) {
+      throw new ApiError(409, 'already_playing', 'already playing');
+    }
+
+    if (!player.getCurrent()) {
+      throw new ApiError(409, 'nothing_to_play', 'there is nothing queued to play');
+    }
+
+    if (!player.voiceConnection) {
+      await player.connect(resumeTarget(request));
+    }
+
+    await player.play();
+
+    if (!player.getCurrent()) {
+      throw new ApiError(409, 'nothing_to_play', 'no playable songs found');
+    }
+
+    credit(request, messages.actionResumed);
+  }],
+  ['skip', async request => {
+    const {player} = request;
+
+    if (!player.getCurrent()) {
+      throw new ApiError(409, 'nothing_playing', 'nothing is playing');
+    }
+
+    if (!player.canGoForward(1)) {
+      throw new ApiError(409, 'no_next_song', 'there is no next song to skip to');
+    }
+
+    await player.forward(1);
+    credit(request, messages.actionSkipped);
+  }],
+  ['stop', async request => {
+    if (!request.player.voiceConnection) {
+      throw new ApiError(409, 'not_connected', 'not connected to a voice channel');
+    }
+
+    await request.deps.cards.onStopped(request.guild.id);
+    request.player.stop();
+  }],
+  ['disconnect', request => {
+    if (!request.player.voiceConnection) {
+      throw new ApiError(409, 'not_connected', 'not connected to a voice channel');
+    }
+
+    request.player.disconnect();
+    credit(request, messages.actionDisconnected);
+  }],
+  ['volume', request => {
+    const {player, body} = request;
+    const {value} = body;
+
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) {
+      throw new ApiError(400, 'invalid_field', 'value must be a number from 0 to 100');
+    }
+
+    if (!player.getCurrent()) {
+      throw new ApiError(409, 'nothing_playing', 'nothing is playing');
+    }
+
+    const previous = player.getVolume();
+    const level = Math.round(value);
+
+    player.setVolume(level);
+    credit(request, level >= previous ? messages.actionVolumeUp(level) : messages.actionVolumeDown(level));
+  }],
+]);
+
+const control = async (deps: ApiDeps, {guildId, action, body}: {guildId: string; action: string; body: Record<string, unknown>}, context: Context) => {
+  const run = CONTROL_ACTIONS.get(action);
+
+  if (!run) {
+    throw new ApiError(404, 'not_found', 'unknown action');
+  }
+
   const guild = guildOrThrow(deps.client, guildId);
-  const player = deps.getPlayer(guildId);
   const userId = optionalSnowflake(body, 'userId');
 
   context.guildId = guildId;
   context.userId = userId;
 
-  const credit = (text: string) => {
-    if (userId) {
-      deps.cards.setLastAction(guildId, text, userId);
-    }
-  };
-
-  switch (action) {
-    case 'pause': {
-      if (player.status !== STATUS.PLAYING) {
-        throw new ApiError(409, 'not_playing', 'nothing is playing');
-      }
-
-      player.pause();
-      credit(messages.actionPaused);
-      break;
-    }
-
-    case 'resume': {
-      if (player.status === STATUS.PLAYING) {
-        throw new ApiError(409, 'already_playing', 'already playing');
-      }
-
-      if (!player.getCurrent()) {
-        throw new ApiError(409, 'nothing_to_play', 'there is nothing queued to play');
-      }
-
-      if (!player.voiceConnection) {
-        await player.connect(resumeTarget(deps, guild, body, userId));
-      }
-
-      await player.play();
-
-      if (!player.getCurrent()) {
-        throw new ApiError(409, 'nothing_to_play', 'no playable songs found');
-      }
-
-      credit(messages.actionResumed);
-      break;
-    }
-
-    case 'skip': {
-      if (!player.getCurrent()) {
-        throw new ApiError(409, 'nothing_playing', 'nothing is playing');
-      }
-
-      if (!player.canGoForward(1)) {
-        throw new ApiError(409, 'no_next_song', 'there is no next song to skip to');
-      }
-
-      await player.forward(1);
-      credit(messages.actionSkipped);
-      break;
-    }
-
-    case 'stop': {
-      if (!player.voiceConnection) {
-        throw new ApiError(409, 'not_connected', 'not connected to a voice channel');
-      }
-
-      await deps.cards.onStopped(guildId);
-      player.stop();
-      break;
-    }
-
-    case 'disconnect': {
-      if (!player.voiceConnection) {
-        throw new ApiError(409, 'not_connected', 'not connected to a voice channel');
-      }
-
-      player.disconnect();
-      credit(messages.actionDisconnected);
-      break;
-    }
-
-    case 'volume': {
-      const {value} = body;
-
-      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) {
-        throw new ApiError(400, 'invalid_field', 'value must be a number from 0 to 100');
-      }
-
-      if (!player.getCurrent()) {
-        throw new ApiError(409, 'nothing_playing', 'nothing is playing');
-      }
-
-      const previous = player.getVolume();
-      const level = Math.round(value);
-
-      player.setVolume(level);
-      credit(level >= previous ? messages.actionVolumeUp(level) : messages.actionVolumeDown(level));
-      break;
-    }
-
-    default:
-      throw new ApiError(404, 'not_found', 'unknown action');
-  }
+  const player = deps.getPlayer(guildId);
+  await run({deps, guild, player, body, userId});
 
   return {ok: true, action, status: describeStatus(guild, player)};
 };
 
 // ---- request handler -----------------------------------------------------
-
-const ACTIONS = new Set(['pause', 'resume', 'skip', 'stop', 'disconnect', 'volume']);
 
 const route = (method: string, path: string) => {
   if (path === '/api/play') {
@@ -544,11 +552,65 @@ const route = (method: string, path: string) => {
 
   match = /^\/api\/guilds\/([^/]+)\/([a-z]+)$/.exec(path);
 
-  if (match && ACTIONS.has(match[2])) {
+  if (match && CONTROL_ACTIONS.has(match[2])) {
     return {name: 'action', allowed: 'POST', match: match.slice(1), ok: method === 'POST'};
   }
 
   return undefined;
+};
+
+const snowflakeFromPath = (value: string, what: string) => {
+  let id = value;
+
+  try {
+    id = decodeURIComponent(value);
+  } catch {
+    // A malformed escape: leave it as is, so it fails the check below.
+  }
+
+  if (!SNOWFLAKE.test(id)) {
+    throw new ApiError(400, 'invalid_field', `${what} must be a Discord ID`);
+  }
+
+  return id;
+};
+
+const userVoice = (deps: ApiDeps, rawUserId: string, context: Context) => {
+  context.userId = rawUserId;
+  const userId = snowflakeFromPath(rawUserId, 'user id');
+  const matches = findUserVoice(deps.client, userId);
+
+  if (matches.length === 0) {
+    throw new ApiError(404, 'user_not_in_voice', 'that user is not in a voice channel');
+  }
+
+  context.guildId = matches[0].guild.id;
+
+  return {...describeMatch(matches[0]), matches: matches.map(describeMatch)};
+};
+
+const guildStatus = (deps: ApiDeps, rawGuildId: string, context: Context) => {
+  context.guildId = rawGuildId;
+  const guildId = snowflakeFromPath(rawGuildId, 'guild id');
+
+  return describeStatus(guildOrThrow(deps.client, guildId), deps.getPlayer(guildId));
+};
+
+const dispatch = async (deps: ApiDeps, req: IncomingMessage, matched: NonNullable<ReturnType<typeof route>>, context: Context) => {
+  switch (matched.name) {
+    case 'userVoice':
+      return userVoice(deps, matched.match[0], context);
+    case 'status':
+      return guildStatus(deps, matched.match[0], context);
+    case 'play':
+      return play(deps, await readJsonBody(req), context);
+    default: {
+      const guildId = snowflakeFromPath(matched.match[0], 'guild id');
+      context.guildId = guildId;
+
+      return control(deps, {guildId, action: matched.match[1], body: await readJsonBody(req)}, context);
+    }
+  }
 };
 
 export const createApiHandler = (deps: ApiDeps) => {
@@ -603,48 +665,7 @@ export const createApiHandler = (deps: ApiDeps) => {
         throw new ApiError(503, 'not_ready', 'the bot is still connecting to Discord');
       }
 
-      let result: unknown;
-
-      if (matched.name === 'userVoice') {
-        const userId = decodeURIComponent(matched.match[0]);
-        context.userId = userId;
-
-        if (!SNOWFLAKE.test(userId)) {
-          throw new ApiError(400, 'invalid_field', 'user id must be a Discord ID');
-        }
-
-        const matches = findUserVoice(deps.client, userId);
-
-        if (matches.length === 0) {
-          throw new ApiError(404, 'user_not_in_voice', 'that user is not in a voice channel');
-        }
-
-        context.guildId = matches[0].guild.id;
-        result = {...describeMatch(matches[0]), matches: matches.map(describeMatch)};
-      } else if (matched.name === 'status') {
-        const guildId = decodeURIComponent(matched.match[0]);
-        context.guildId = guildId;
-
-        if (!SNOWFLAKE.test(guildId)) {
-          throw new ApiError(400, 'invalid_field', 'guild id must be a Discord ID');
-        }
-
-        const guild = guildOrThrow(deps.client, guildId);
-        result = describeStatus(guild, deps.getPlayer(guildId));
-      } else if (matched.name === 'play') {
-        result = await play(deps, await readJsonBody(req), context);
-      } else {
-        const guildId = decodeURIComponent(matched.match[0]);
-        context.guildId = guildId;
-
-        if (!SNOWFLAKE.test(guildId)) {
-          throw new ApiError(400, 'invalid_field', 'guild id must be a Discord ID');
-        }
-
-        result = await control(deps, guildId, matched.match[1], await readJsonBody(req), context);
-      }
-
-      respond(200, result);
+      respond(200, await dispatch(deps, req, matched, context));
     } catch (error: unknown) {
       if (error instanceof ApiError) {
         code = error.code;
