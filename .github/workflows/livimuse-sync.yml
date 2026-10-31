@@ -1,4 +1,10 @@
-# LiviMuse: once a day, merge the newest upstream Muse release into master.
+# LiviMuse: merge the newest upstream Muse release into master.
+#
+# PAUSED: the daily schedule is off. Muse v2.12.0 added its own player, which
+# conflicts with ours, and the fork doesn't depend on upstream. Run this by hand
+# from the Actions tab (Run workflow) to pull a release in on purpose, or put the
+# schedule back below.
+#
 # Pushing uses the SYNC_TOKEN secret (not the built-in token) for two reasons:
 # upstream releases often change files under .github/workflows, which the
 # built-in token isn't allowed to push, and pushes made with the built-in token
@@ -6,8 +12,8 @@
 name: LiviMuse sync upstream
 
 on:
-  schedule:
-    - cron: '23 8 * * *'
+  # schedule:
+  #   - cron: '23 8 * * *'
   workflow_dispatch:
 
 concurrency:

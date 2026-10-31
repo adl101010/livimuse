@@ -37,7 +37,7 @@ LiviMuse doesn't depend on the Muse repository to run or to build:
 - **The image is self-contained.** Everything the bot needs at runtime is inside `ghcr.io/adl101010/livimuse`. Nothing contacts the Muse project.
 - **Builds use public registries only.** Docker Hub (Node base image), Debian (ffmpeg), npm (pinned by `yarn.lock`), and PyPI (yt-dlp). The full source lives in this repository.
 - **yt-dlp stays current on its own.** It updates from PyPI at startup and then every 24 hours while running, so YouTube-side breakage is usually fixed without a rebuild. Admins can also update it, or switch to nightly builds, from Discord with `/ytdlp`.
-- **Muse updates are optional.** A daily workflow merges new Muse releases when they appear. If Muse ever stops, the bot keeps working. The workflow would start failing, and you can disable it.
+- **Muse updates are optional, and currently paused.** A workflow can merge a new Muse release, but its daily schedule is off, so nothing is pulled in unless you run it by hand. The fork doesn't need Muse to keep working.
 
 What no fork can avoid: YouTube and Discord change their platforms over time. Most YouTube changes are handled by the yt-dlp updates. Occasionally a platform change needs a dependency upgrade in this repository and a rebuild.
 
@@ -352,7 +352,7 @@ Where Muse's files are changed, it's by small hooks, each marked with a `LiviMus
 ### Build and sync pipelines
 
 - **[`livimuse-build.yml`](.github/workflows/livimuse-build.yml)** runs on every push to `master`: type check, lint, and Muse's test suite, then it publishes the image. Muse's tests run against Muse's original wording and without the buttons (see `vitest.config.ts`), so changing replies can never fail the build.
-- **[`livimuse-sync.yml`](.github/workflows/livimuse-sync.yml)** runs daily and merges the newest Muse release. It pushes with a `SYNC_TOKEN` repository secret: a fine-grained token with Contents and Workflows write access to this repository. On a conflict it stops, pushes nothing, and fails so GitHub emails you. The running bot is unaffected.
+- **[`livimuse-sync.yml`](.github/workflows/livimuse-sync.yml)** merges the newest Muse release. **Its daily schedule is paused** (Muse v2.12.0 added its own player, which conflicts with this fork's), so it only runs when you start it from the Actions tab. To turn the schedule back on, uncomment the `schedule` lines in the file. It pushes with a `SYNC_TOKEN` repository secret: a fine-grained token with Contents and Workflows write access to this repository. On a conflict it stops, pushes nothing, and fails so GitHub emails you. The running bot is unaffected.
 
 Resolving a sync conflict locally:
 
