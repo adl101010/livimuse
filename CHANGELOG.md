@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Ask yt-dlp for YouTube's `visionos` player client by default. With only a Node runtime it picked the TV client, and YouTube now answers some of those links with 403 when FFmpeg opens them. Override or turn it off with `YT_DLP_YOUTUBE_EXTRACTOR_ARGS` (empty string passes nothing); SoundCloud is never affected. The effective value is logged at startup.
+
 ## [2.11.8] - 2026-09-20
 
 - Retry stalled initial voice handshakes within a bounded wait, share concurrent joins, and report the failed network phase without exposing voice credentials.

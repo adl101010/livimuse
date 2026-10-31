@@ -308,7 +308,19 @@ export const updateYtDlp = async (): Promise<YtDlpUpdateResult> => {
   };
 };
 
-const extractMedia = async (url: string, playlistLimit?: number, useYouTubeCookies = true): Promise<YtDlpResponse & SoundCloudMetadata> => {
+// LiviMuse: which YouTube player client yt-dlp asks for. With only a Node runtime it picks the TV
+// client, and YouTube now answers 403 when ffmpeg opens some of those links. visionos works without a
+// PO token or a JS runtime. Override with YT_DLP_YOUTUBE_EXTRACTOR_ARGS; set it to an empty string
+// to pass nothing and let yt-dlp choose. Read on each use, so a restart picks up a changed value.
+export const DEFAULT_YOUTUBE_EXTRACTOR_ARGS = 'youtube:player_client=visionos';
+
+export const getYouTubeExtractorArgs = (): string => {
+  const configured = process.env.YT_DLP_YOUTUBE_EXTRACTOR_ARGS;
+
+  return configured === undefined ? DEFAULT_YOUTUBE_EXTRACTOR_ARGS : configured.trim();
+};
+
+const extractMedia = async (url: string, playlistLimit?: number, isYouTube = true): Promise<YtDlpResponse & SoundCloudMetadata> => {
   try {
     return await withTemporaryCookies(async cookiesPath => {
       const args = [
@@ -325,6 +337,12 @@ const extractMedia = async (url: string, playlistLimit?: number, useYouTubeCooki
         'proto:https',
       ];
 
+      const extractorArgs = isYouTube ? getYouTubeExtractorArgs() : '';
+
+      if (extractorArgs !== '') {
+        args.push('--extractor-args', extractorArgs);
+      }
+
       if (cookiesPath) {
         args.push('--cookies', cookiesPath);
       }
@@ -336,7 +354,7 @@ const extractMedia = async (url: string, playlistLimit?: number, useYouTubeCooki
       });
 
       return JSON.parse(stdout) as YtDlpResponse & SoundCloudMetadata;
-    }, useYouTubeCookies);
+    }, isYouTube);
   } catch (error: unknown) {
     if (isExecaError(error)) {
       const detail = error.stderr?.trim() ?? error.shortMessage ?? 'Unknown yt-dlp error';

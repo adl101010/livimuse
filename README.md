@@ -193,6 +193,7 @@ All are optional. Change a value, then restart the container.
 | `LIVIMUSE_VOICE_STATUS` | `true` | Show the song under the voice channel name |
 | `LIVIMUSE_PRELOAD_NEXT` | `true` | Prepare the next song while the current one plays |
 | `LIVIMUSE_TIDY_SECONDS` | `60` | Delete plain-text confirmations after this long (`0` = keep them) |
+| `YT_DLP_YOUTUBE_EXTRACTOR_ARGS` | `youtube:player_client=visionos` | Passed to yt-dlp as `--extractor-args` for YouTube only (never SoundCloud). YouTube rejects the links of yt-dlp's default TV client for some videos with a 403, and `visionos` avoids that. YouTube breaks clients from time to time, so when it does, change this value and recreate the container; no rebuild needed. Set it to an empty string to pass nothing and let yt-dlp choose. The effective value is logged at startup |
 | `LIVIMUSE_YT_DLP_UPDATE_HOURS` | `24` | Re-check yt-dlp while running (`0` = only at startup, max `168`). Needs `YT_DLP_AUTO_UPDATE=true` |
 | `LIVIMUSE_API_TOKEN` | *(off)* | Bearer token for the [Control API](#control-api). The API doesn't listen at all until this is set |
 | `LIVIMUSE_API_PORT` | `8787` | Port the Control API listens on (inside the container) |

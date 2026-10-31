@@ -1,5 +1,5 @@
 import Config from '../services/config.js';
-import {getExecutable, getYtDlpVersion, updateYtDlp} from './yt-dlp.js';
+import {getExecutable, getYouTubeExtractorArgs, getYtDlpVersion, updateYtDlp} from './yt-dlp.js';
 
 const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : 'unknown error';
 
@@ -8,6 +8,8 @@ const logUnavailableVersion = (error: unknown) => {
 };
 
 export default async function prepareYtDlp(config: Config): Promise<void> {
+  console.log(`YT_DLP_YOUTUBE_EXTRACTOR_ARGS=${getYouTubeExtractorArgs() || '(none; yt-dlp chooses its own client)'}`);
+
   if (!config.YT_DLP_AUTO_UPDATE) {
     try {
       console.log(`YT_DLP_VERSION=${await getYtDlpVersion()} (${getExecutable()})`);

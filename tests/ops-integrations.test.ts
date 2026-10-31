@@ -266,6 +266,7 @@ beforeEach(() => {
   dependencyMocks.spotifyConstructorOptions.length = 0;
   delete process.env.YT_DLP_COOKIES_PATH;
   delete process.env.YT_DLP_PATH;
+  delete process.env.YT_DLP_YOUTUBE_EXTRACTOR_ARGS;
   delete process.env.MUSE_BUNDLED_YT_DLP_PATH;
   dependencyMocks.execa.mockResolvedValue({stdout: VALID_MEDIA_RESPONSE});
   dependencyMocks.ffmpeg.mockImplementation(makeFfmpegCommand);
@@ -497,9 +498,70 @@ describe('OPS-11 yt-dlp extraction and ffmpeg handoff', () => {
       'bestaudio/best',
       '-S',
       'proto:https',
+      '--extractor-args',
+      'youtube:player_client=visionos',
       'https://www.youtube.com/watch?v=abcdefghijk',
     ], {
       timeout: 45_000,
+    });
+  });
+
+  describe('YouTube extractor args', () => {
+    const extractorArgsOf = (call: unknown[]) => {
+      const args = call[1] as string[];
+      const index = args.indexOf('--extractor-args');
+
+      return index === -1 ? undefined : args[index + 1];
+    };
+
+    it('defaults to the visionos player client', async () => {
+      process.env.YT_DLP_PATH = '/fake/yt-dlp';
+
+      await getYouTubeMediaSource('abcdefghijk');
+
+      expect(extractorArgsOf(dependencyMocks.execa.mock.calls[0])).toBe('youtube:player_client=visionos');
+    });
+
+    it('uses YT_DLP_YOUTUBE_EXTRACTOR_ARGS when set', async () => {
+      process.env.YT_DLP_PATH = '/fake/yt-dlp';
+      process.env.YT_DLP_YOUTUBE_EXTRACTOR_ARGS = 'youtube:player_client=web_safari';
+
+      await getYouTubeMediaSource('abcdefghijk');
+
+      expect(extractorArgsOf(dependencyMocks.execa.mock.calls[0])).toBe('youtube:player_client=web_safari');
+    });
+
+    it.each(['', '   '])('passes no --extractor-args when it is set to %j', async value => {
+      process.env.YT_DLP_PATH = '/fake/yt-dlp';
+      process.env.YT_DLP_YOUTUBE_EXTRACTOR_ARGS = value;
+
+      await getYouTubeMediaSource('abcdefghijk');
+
+      expect(dependencyMocks.execa.mock.calls[0][1]).not.toContain('--extractor-args');
+    });
+
+    it('never adds them for SoundCloud', async () => {
+      process.env.YT_DLP_PATH = '/fake/yt-dlp';
+      dependencyMocks.execa.mockResolvedValue({stdout: JSON.stringify({url: 'https://media.example/sc.mp3', http_headers: {}})});
+
+      await getSoundCloudMediaSource('https://soundcloud.com/artist/track');
+      await getSoundCloudMetadata('https://soundcloud.com/artist/sets/album', 3);
+
+      for (const call of dependencyMocks.execa.mock.calls) {
+        expect(call[1]).not.toContain('--extractor-args');
+      }
+    });
+
+    it('logs the effective value at startup', async () => {
+      const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      dependencyMocks.execa.mockResolvedValue({stdout: '2026.10.26'});
+
+      await prepareYtDlp({YT_DLP_AUTO_UPDATE: false} as never);
+      expect(log).toHaveBeenCalledWith('YT_DLP_YOUTUBE_EXTRACTOR_ARGS=youtube:player_client=visionos');
+
+      process.env.YT_DLP_YOUTUBE_EXTRACTOR_ARGS = '';
+      await prepareYtDlp({YT_DLP_AUTO_UPDATE: false} as never);
+      expect(log).toHaveBeenCalledWith('YT_DLP_YOUTUBE_EXTRACTOR_ARGS=(none; yt-dlp chooses its own client)');
     });
   });
 
